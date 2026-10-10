@@ -1,6 +1,6 @@
 # 05: Docker and Service Standards
 
-> **Status:** Approved · **Last updated:** 2026-10-09
+> **Status:** Approved · **Last updated:** 2026-10-10
 > Docker is worth **4 of 20 marks**. Every service is containerized to the standards below.
 
 ---
@@ -17,6 +17,7 @@ One **public GitHub monorepo**:
 /deploy/compose/     Docker Compose files
 /docs/               these documents
 /.github/workflows/  CI/CD (see 08)
+/.githooks/           pre-commit secret-scan hook and setup script (see 09)
 ```
 
 CI uses **path filters**, so a change in one service builds and tests only that service.

@@ -116,10 +116,11 @@ When the developer pastes Antigravity's full response, Claude:
 
 - **Branches:** commits go directly to `main` (D-030), with no pull requests. Short-lived local branches are optional.
 - **Commits:** **Conventional Commits** (`feat(auth): add login endpoint`). One logical change per commit.
-- **Claude supplies** copy-paste PowerShell blocks: create the branch, `git status` and `git diff --stat` to inspect, `git add` with explicit paths, `git commit -m "..."` and `git push`.
+- **Claude supplies** copy-paste PowerShell blocks: `git status` and `git diff --stat` to inspect, `git add` with explicit paths, `git commit -m "..."` and `git push`.
 - **Before every commit**, give a verification step (`git status`, `git diff --stat`) and say what the output should look like. If something unexpected appears, stop and investigate.
 - **Never** give `git push --force`, history rewrites on `main`, or `git add .` without a prior `git status` review.
 - **If a secret is ever committed:** rotate it immediately (the repo is public), then clean up. Deleting the commit does not undo exposure.
+- **Never bypass the pre-commit hook** (no `git commit --no-verify`). If it blocks a commit, remove the secret, rotate it if it was ever pushed, then commit again.
 - **Windows:** the repo uses a `.gitattributes` forcing LF line endings. Treat any CRLF problem as a bug to fix, not to ignore.
 
 ## 8. Manual doc changes and decision logging

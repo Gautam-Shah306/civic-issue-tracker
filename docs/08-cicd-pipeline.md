@@ -56,7 +56,7 @@ The deploy job connects, runs `helm upgrade --install --atomic` from the shared 
 
 - **Trunk-based development, solo:** the developer commits and pushes directly to `main`. There are no pull requests and no branch protection (D-030). Short-lived local branches are optional for risky changes, merged locally before pushing.
 - **Review happens before commit:** the Claude chat reviews the `git diff` and verification output. There is no second human reviewer, so this is the review step.
-- **Gitleaks pre-commit is mandatory** and GitHub push protection stays on, because a pushed secret is public immediately.
+- **Gitleaks pre-commit is mandatory** (a pinned binary run by `.githooks/pre-commit`, D-031) and GitHub push protection stays on, because a pushed secret is public immediately.
 - **Conventional Commits** (`feat:`, `fix:`, `chore:` and so on) for a readable history.
 - **Semantic versioning** for releases, first release tagged `v1.0.0`.
 
@@ -81,6 +81,5 @@ The deploy job connects, runs `helm upgrade --install --atomic` from the shared 
 | Exact workflow filenames and reusable-workflow inputs | Phase 0 / Phase 1 |
 | Path-filter rules per service (including shared `/contracts` changes triggering all affected services) | Phase 1 |
 | How the smoke test authenticates and cleans up its test data | Phase 3 |
-| Pre-commit hook setup for local secret scanning on Windows | Phase 0 |
 | Release notes format and when `v1.0.0` is cut | Phase 5 |
 | Deploy-user permissions on the VM and the IAP-based deploy script | Phase 5 |

@@ -5,11 +5,11 @@
 
 ## Status
 
-- **Current phase:** Phase 0, Foundations (not started)
-- **Last verified step:** none yet
+- **Current phase:** Phase 0, Foundations (in progress)
+- **Last verified step:** Gitleaks pre-commit hook (blocks a fake token; clean commit passes)
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
 - **Cloud account:** not created (by design; created in Phase 5)
-- **Next action:** first commit and push, then Gitleaks pre-commit hook, then Docker Compose infrastructure
+- **Next action:** Dependabot configuration, then Docker Compose infrastructure, then the CI skeleton
 
 ## Phase checklist
 
@@ -18,7 +18,8 @@
 - [x] `/docs` populated with documents `00` to `12`, `PROJECT-INSTRUCTIONS.md`, `PROGRESS.md`
 - [x] `.gitignore` (including `*.tfstate*`, real `*.tfvars`, env files) and `.gitattributes` (LF)
 - [x] `CODE_STYLE.md` created
-- [ ] D-030 recorded: direct pushes to `main`, no pull requests, no branch protection
+- [x] D-030 recorded: direct pushes to `main`, no pull requests, no branch protection
+- [x] Gitleaks pre-commit hook (pinned v8.30.1, D-031) installed and verified; GitHub secret scanning and push protection on
 - [x] Docker runtime and shell confirmed on the Windows machine
 - [ ] Docker Compose infrastructure runs (Postgres/PostGIS, RabbitMQ, Redis, SeaweedFS, Mailpit)
 - [ ] CI skeleton green on empty services; Gitleaks and secret scanning on
@@ -60,3 +61,5 @@
 |---|---|---|
 | 2026-10-09 | Design documents written | Baseline approved |
 | 2026-10-10 | Repo created and cloned; D-030 recorded (direct pushes, no PRs) | Verified |
+| 2026-10-10 | First commit pushed (layout, base config, docs; 35 files) | Verified |
+| 2026-10-10 | Gitleaks v8.30.1 pre-commit hook installed; fake-token test blocked; clean commit passed | Verified |

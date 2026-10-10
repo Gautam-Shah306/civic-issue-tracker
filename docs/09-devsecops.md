@@ -45,6 +45,7 @@ All scans run on free GitHub runners, so they cost **no memory on the VM**. Resu
 
 - **Pin every third-party GitHub Action to a full commit SHA.** Dependabot proposes updates to those pins.
 - **Install scanner binaries at pinned versions and verify checksums**, not a latest tag.
+- **Gitleaks runs as a pinned, checksum-verified binary** (v8.30.1 or later; earlier versions have CVE-2026-63728), never through `gitleaks-action`. The pre-commit hook in `.githooks/` runs it from `.local/bin` and fails closed if it is missing (D-031).
 - **Sign images with Cosign** using GitHub's OIDC identity (free, no keys to store), and **verify the signature in the deploy job** before `helm upgrade`. The cluster then only runs images our pipeline built.
 - **Attach the SBOM** to each release.
 - **Minimal `permissions:`** on every workflow, and **no deployment secrets in scan jobs**.
@@ -74,8 +75,7 @@ The three scans the assessment names (image, dependency, secret) are automated g
 
 | Decision | Settle in |
 |---|---|
-| Pinned versions of Gitleaks, OSV-Scanner, Grype, Syft, Hadolint, Checkov, Cosign and ZAP (verify current status at that time) | Phase 0 / Phase 3 |
-| Pre-commit tooling on Windows | Phase 0 |
+| Pinned versions of OSV-Scanner, Grype, Syft, Hadolint, Checkov, Cosign and ZAP (Gitleaks is pinned at v8.30.1, D-031; verify current status at that time) | Phase 0 / Phase 3 |
 | Allowlist file format and location | Phase 0 |
 | Staleness threshold for the Grype database check (maximum age in days) | Phase 3 |
 | ZAP baseline scope and rules to ignore | Phase 3 |
