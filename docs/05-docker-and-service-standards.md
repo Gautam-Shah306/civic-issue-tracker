@@ -17,7 +17,7 @@ One **public GitHub monorepo**:
 /deploy/compose/     Docker Compose files
 /docs/               these documents
 /.github/workflows/  CI/CD (see 08)
-/.githooks/           pre-commit secret-scan hook and setup script (see 09)
+/.githooks/          pre-commit secret-scan hook and setup script (see 09)
 ```
 
 CI uses **path filters**, so a change in one service builds and tests only that service.

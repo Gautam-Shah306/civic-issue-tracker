@@ -54,7 +54,7 @@ The deploy job connects, runs `helm upgrade --install --atomic` from the shared 
 
 ## 6. Branching and versioning
 
-- **Trunk-based development, solo:** the developer commits and pushes directly to `main`. There are no pull requests and no branch protection (D-030). Short-lived local branches are optional for risky changes, merged locally before pushing.
+- **Trunk-based development, solo:** the developer commits and pushes directly to `main`. There are no pull requests of our own and no branch protection (D-030); Dependabot's update PRs are the one exception, merged from the GitHub UI after CI is green (D-032). Short-lived local branches are optional for risky changes, merged locally before pushing.
 - **Review happens before commit:** the Claude chat reviews the `git diff` and verification output. There is no second human reviewer, so this is the review step.
 - **Gitleaks pre-commit is mandatory** (a pinned binary run by `.githooks/pre-commit`, D-031) and GitHub push protection stays on, because a pushed secret is public immediately.
 - **Conventional Commits** (`feat:`, `fix:`, `chore:` and so on) for a readable history.

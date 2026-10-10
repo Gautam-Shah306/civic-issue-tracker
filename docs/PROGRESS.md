@@ -23,7 +23,7 @@
 - [x] Docker runtime and shell confirmed on the Windows machine
 - [ ] Docker Compose infrastructure runs (Postgres/PostGIS, RabbitMQ, Redis, SeaweedFS, Mailpit)
 - [ ] CI skeleton green on empty services; Gitleaks and secret scanning on
-- [ ] Dependabot configured
+- [ ] Dependabot: alerts and security updates enabled in repo settings; policy settled (D-032); ecosystem entries added with each first manifest
 
 ### Phase 1: Walking skeleton
 - [ ] Gateway, Auth, Report, Notification, minimal frontend, each with Dockerfile and CI

@@ -53,7 +53,7 @@ All scans run on free GitHub runners, so they cost **no memory on the VM**. Resu
 ## 5. Keeping scanning current
 
 - **Weekly scheduled workflow** re-scans the published images, because new vulnerabilities appear after a build.
-- **Dependabot weekly** for npm, pip, Docker base images, GitHub Actions and Terraform providers.
+- **Dependabot weekly** for npm, pip, Docker base images, Docker Compose, GitHub Actions and Terraform providers. Policy (D-032): 7-day cooldown on version updates, minor and patch updates grouped, update PRs merged from the GitHub UI after CI is green.
 
 ## 6. Secret handling and runtime security
 
@@ -80,5 +80,5 @@ The three scans the assessment names (image, dependency, secret) are automated g
 | Staleness threshold for the Grype database check (maximum age in days) | Phase 3 |
 | ZAP baseline scope and rules to ignore | Phase 3 |
 | Cosign verification identity settings (workflow and repo identity) | Phase 3 / Phase 5 |
-| Dependabot configuration (schedule, grouping) | Phase 0 |
+| Dependabot ecosystem entries in `.github/dependabot.yml` (policy settled in D-032; each entry is added with the first manifest of its kind) | Phase 0 to Phase 5 |
 | Re-verify tool status (supply-chain incidents, maintenance state) before Phase 3 | Phase 3 |
