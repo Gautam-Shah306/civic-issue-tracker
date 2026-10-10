@@ -9,6 +9,7 @@
 .terraform/
 *.tfvars
 !*.tfvars.example
+*.tfplan
 crash.log
 
 # Node

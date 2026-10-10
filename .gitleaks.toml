@@ -1,0 +1,5 @@
+[extend]
+useDefault = true
+
+# Allowlist entries must each carry a reason and an expiry date as comments (docs/09 section 3).
+# (None yet)

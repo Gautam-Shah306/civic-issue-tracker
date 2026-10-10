@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+
+# Find the repository root
+REPO_ROOT=$(git rev-parse --show-toplevel)
+
+# Set the path to the local gitleaks executable
+LOCAL_GITLEAKS="$REPO_ROOT/.local/bin/gitleaks.exe"
+
+if [ ! -x "$LOCAL_GITLEAKS" ]; then
+    echo "ERROR: gitleaks not found at $LOCAL_GITLEAKS or not executable."
+    echo "Please run '.githooks/setup.ps1' to install the required pre-commit tooling."
+    exit 1
+fi
+
+echo "Running Gitleaks pre-commit hook..."
+if ! "$LOCAL_GITLEAKS" git --pre-commit --staged --redact --config "$REPO_ROOT/.gitleaks.toml"; then
+    echo "ERROR: Gitleaks detected secrets in your staged changes."
+    echo "Commit blocked. Please remove the secrets and try again."
+    exit 1
+fi
