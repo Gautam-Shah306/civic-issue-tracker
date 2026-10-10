@@ -1,6 +1,6 @@
 # 04: Tech Stack and Data Stores
 
-> **Status:** Approved · **Last updated:** 2026-10-09
+> **Status:** Approved · **Last updated:** 2026-10-10
 > **Guiding rules:** free-tier first, as few moving parts as possible, polyglot by design (two languages).
 
 ---
@@ -73,7 +73,7 @@ Chosen because acknowledgements, retries and dead-letter queues are built in, so
 | Version control | **Git**, hosted on **GitHub** (public monorepo) |
 
 ### Why SeaweedFS replaced MinIO (verified 2026-10-09)
-MinIO stopped publishing binaries and Docker images in October 2025, went into maintenance mode in December 2025, and was archived by its owner on April 25, 2026. Building it from source would add work and security risk. Services talk to storage through the standard **S3 API**, so the swap affects configuration only. Alternatives considered: **Garage** (very light, needs a one-time layout step) and **RustFS** (newer, more maturity risk). Resource use is confirmed in local testing before the choice is locked in.
+MinIO stopped publishing binaries and Docker images in October 2025, went into maintenance mode in December 2025, and was archived by its owner on April 25, 2026. Building it from source would add work and security risk. Services talk to storage through the standard **S3 API**, so the swap affects configuration only. Alternatives considered: **Garage** (very light, needs a one-time layout step) and **RustFS** (newer, more maturity risk). Idle resource use was measured locally on 2026-10-10 (about 63 MiB, see D-033); behaviour under load is re-measured in Phase 4.
 
 ---
 
@@ -86,6 +86,6 @@ MinIO stopped publishing binaries and Docker images in October 2025, went into m
 | Node lint and format tooling (ESLint and Prettier are the suggested defaults) | Phase 0 |
 | `CODE_STYLE.md` contents (conventions for Node/TypeScript and Python) | Phase 0 (first prompt) |
 | Free-tier email service for the live demo | Phase 5 |
-| Confirm SeaweedFS memory footprint (Garage as fallback) | Phase 0 / Phase 3 |
+| Re-measure SeaweedFS memory under load (idle about 63 MiB, D-033; Garage stays the fallback) | Phase 4 |
 | Frontend state, routing and UI component approach | Phase 1 |
 | Refresh-token storage and rotation details | Phase 1 |

@@ -6,10 +6,10 @@
 ## Status
 
 - **Current phase:** Phase 0, Foundations (in progress)
-- **Last verified step:** Gitleaks pre-commit hook (blocks a fake token; clean commit passes)
+- **Last verified step:** Compose infrastructure (all five services healthy after a clean restart; PostgreSQL 18.6 with PostGIS 3.6.4; S3 and Redis authentication enforced)
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
 - **Cloud account:** not created (by design; created in Phase 5)
-- **Next action:** Dependabot configuration, then Docker Compose infrastructure, then the CI skeleton
+- **Next action:** CI skeleton (first workflow: pinned Gitleaks binary and Compose validation, plus the `github-actions` Dependabot entry), then the Phase 0 exit check
 
 ## Phase checklist
 
@@ -21,9 +21,9 @@
 - [x] D-030 recorded: direct pushes to `main`, no pull requests, no branch protection
 - [x] Gitleaks pre-commit hook (pinned v8.30.1, D-031) installed and verified; GitHub secret scanning and push protection on
 - [x] Docker runtime and shell confirmed on the Windows machine
-- [ ] Docker Compose infrastructure runs (Postgres/PostGIS, RabbitMQ, Redis, SeaweedFS, Mailpit)
+- [x] Docker Compose infrastructure runs (Postgres/PostGIS, RabbitMQ, Redis, SeaweedFS, Mailpit)
 - [ ] CI skeleton green on empty services; Gitleaks and secret scanning on
-- [ ] Dependabot: alerts and security updates enabled in repo settings; policy settled (D-032); ecosystem entries added with each first manifest
+- [ ] Dependabot: alerts and security updates enabled in repo settings; policy settled (D-032); `docker-compose` entry live; other entries added with each first manifest
 
 ### Phase 1: Walking skeleton
 - [ ] Gateway, Auth, Report, Notification, minimal frontend, each with Dockerfile and CI
@@ -54,6 +54,8 @@
 ## Open items
 
 - All "Deferred decisions" sections in documents `01` to `11`
+- Raise the Docker Desktop VM memory limit (currently 3.757 GiB) before the Phase 3 local Kubernetes test
+- Scan the pinned third-party images (D-033) with Grype in Phase 3
 
 ## Log
 
@@ -63,3 +65,5 @@
 | 2026-10-10 | Repo created and cloned; D-030 recorded (direct pushes, no PRs) | Verified |
 | 2026-10-10 | First commit pushed (layout, base config, docs; 35 files) | Verified |
 | 2026-10-10 | Gitleaks v8.30.1 pre-commit hook installed; fake-token test blocked; clean commit passed | Verified |
+| 2026-10-10 | Dependabot policy recorded (D-032); `docker-compose` entry live | Verified |
+| 2026-10-10 | Compose infrastructure committed; five services healthy after a clean restart (D-033) | Verified |
