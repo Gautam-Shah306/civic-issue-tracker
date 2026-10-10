@@ -1,0 +1,88 @@
+# 05: Docker and Service Standards
+
+> **Status:** Approved · **Last updated:** 2026-10-09
+> Docker is worth **4 of 20 marks**. Every service is containerized to the standards below.
+
+---
+
+## 1. Repository layout
+
+One **public GitHub monorepo**:
+
+```
+/services/<name>/    source, Dockerfile, tests
+/contracts/          OpenAPI specs + event JSON Schemas
+/infra/terraform/    provider-agnostic modules (see 07)
+/deploy/k8s/         manifests and Helm chart (see 06)
+/deploy/compose/     Docker Compose files
+/docs/               these documents
+/.github/workflows/  CI/CD (see 08)
+```
+
+CI uses **path filters**, so a change in one service builds and tests only that service.
+
+## 2. Dockerfile standards (every service)
+
+| Rule | Detail |
+|---|---|
+| **Multi-stage builds** | Build tools stay in the builder stage; only the runtime artefact ships |
+| **Small, pinned base images** | Distroless or slim variants with exact version tags, never `latest` |
+| **Non-root user** | And a read-only root filesystem where possible |
+| **No secrets in images** | No `.env` files or credentials baked in. Config comes from environment variables at runtime. A `.dockerignore` is mandatory |
+| **One process per container** | Logging to stdout as structured JSON |
+| **Standard endpoints** | `/healthz` (liveness) and `/readyz` (readiness) on every service |
+| **Graceful shutdown** | Handle SIGTERM so rolling updates drop no requests |
+| **Layer caching** | Copy and install dependency files before copying source |
+| **Immutable tags** | Images tagged with the Git commit SHA (plus a SemVer tag on releases) |
+| **Linted** | Dockerfiles pass Hadolint (see `09`) |
+
+### Platforms
+- **`linux/amd64`** is the target (GCP and AWS VMs are x86).
+- Also build **`linux/arm64`** with buildx only if needed (an ARM laptop, or a fallback to Oracle's ARM VM).
+- This **replaces the earlier ARM-only note**, which applied when Oracle Cloud was the planned host.
+
+### Registry
+**GitHub Container Registry (GHCR).** Free for public images, lives next to the code, and GitHub Actions can push with the built-in token. Packages are set to **public** so the cluster pulls without credentials. Google Artifact Registry is not used (small free storage allowance).
+
+## 3. Docker Compose and Kubernetes parity
+
+One Compose setup runs all 8 services plus PostgreSQL, RabbitMQ, Redis, SeaweedFS and Mailpit with one command. It mirrors the Kubernetes setup so the move to k3s changes the packaging, not the application.
+
+| Compose | Kubernetes equivalent |
+|---|---|
+| Service name as hostname | Service DNS name |
+| `env_file` / environment | ConfigMap and Secret |
+| `healthcheck` | Liveness and readiness probes |
+| `depends_on` with healthy condition | Readiness gates and init ordering |
+| Named volumes | PersistentVolumeClaims |
+| Compose network | Namespace plus NetworkPolicies |
+| Override file for hot reload | Dev only |
+
+## 4. Local development environment
+
+- Development happens on a **local Windows machine** (Antigravity runs here).
+- Repo hygiene for Windows: a `.gitattributes` forcing **LF line endings** (`* text=auto eol=lf`) so shell scripts and entrypoints work inside Linux containers.
+- All Docker commands, Compose and the local k3s/kind cluster must work from this machine. Docker Desktop or an equivalent is assumed (confirm in Phase 0).
+
+## 5. Rough resource estimate (to be measured, not trusted)
+
+| Group | Approx. memory |
+|---|---|
+| Application containers (8 services, core ones at 2 replicas) | about 1.3 GB |
+| Infrastructure (Postgres, RabbitMQ, SeaweedFS, Redis, monitoring, k3s, ingress, cert-manager) | about 2.5 to 3 GB |
+| **Total** | **about 4 GB, inside an 8 GB VM** |
+
+These are estimates. They are replaced by measured numbers in Phase 3 and Phase 4.
+
+---
+
+## Deferred decisions
+
+| Decision | Settle in |
+|---|---|
+| Exact base image for each service (Node and Python versions, distroless vs slim) | Phase 0 / Phase 1 |
+| Docker runtime on the Windows machine (Docker Desktop with WSL2 assumed) and shell used for commands | Phase 0 |
+| Local Kubernetes tool for rehearsals (k3s or kind) | Phase 3 |
+| Compose profiles (for example `infra-only` vs `full`) | Phase 0 |
+| Image build cache strategy in CI | Phase 0 / Phase 1 |
+| `linux/arm64` builds (only if needed) | Phase 3 or later |

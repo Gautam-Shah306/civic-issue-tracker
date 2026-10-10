@@ -1,0 +1,53 @@
+# Secrets and env files
+.env
+.env.*
+!.env.example
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+!*.tfvars.example
+crash.log
+
+# Node
+node_modules/
+dist/
+build/
+coverage/
+*.log
+.npm/
+.eslintcache
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Docker and Compose
+docker-compose.override.yml
+
+# Keys and certs
+# Note: sealed secrets are the only secret form allowed in the repo
+*.pem
+*.key
+*.p12
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Local data
+*.sqlite
+.local/

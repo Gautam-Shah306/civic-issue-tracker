@@ -1,0 +1,16 @@
+# Force LF so shell scripts and entrypoints work in Linux containers
+* text=auto eol=lf
+
+# Explicit binary entries
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
