@@ -1,0 +1,118 @@
+# This file mirrors the Kubernetes setup (docs/05 section 3)
+# App services will be added later under a Compose profile named 'app'
+# Run `docker compose down -v` to destroy data
+
+name: civic-issue-tracker
+
+services:
+  postgres:
+    image: postgis/postgis:18-3.6@sha256:60f6ad1d21ea86a67d47780b9a0d1e1d200500f62b19293fa834d0dea80b8677
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Postgres user is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Postgres password is required}
+      POSTGRES_DB: ${POSTGRES_DB:?Postgres database name is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s # values to be tuned from measurements in Phase 3
+    networks:
+      - civic
+    security_opt:
+      - no-new-privileges:true
+
+  rabbitmq:
+    image: rabbitmq:4.3.5-management-alpine@sha256:b3b8b7f95f5382a19f9ea33540e604f30aad081d37ad9aba72255135765373a1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?RabbitMQ user is required}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RabbitMQ password is required}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      # TCP probe instead of rabbitmq-diagnostics: a root-run CLI probe can create a root-owned .erlang.cookie before the server starts (eacces crash).
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 5672 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 120s # values to be tuned from measurements in Phase 3
+    networks:
+      - civic
+    security_opt:
+      - no-new-privileges:true
+
+  redis:
+    image: redis:8.8-alpine@sha256:0b2b77d3ea5078274795e3177cdbdada8b96316684a38911d528534ed679b5ec
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?Redis password is required}
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--save", ""]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s # values to be tuned from measurements in Phase 3
+    networks:
+      - civic
+    security_opt:
+      - no-new-privileges:true
+
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8333:8333"
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?S3 access key is required}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?S3 secret key is required}
+    command: ["server", "-s3", "-dir=/data"]
+    volumes:
+      - seaweedfs_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9333/cluster/status && wget -S --spider http://127.0.0.1:8333/ 2>&1 | grep -q 'HTTP/1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s # values to be tuned from measurements in Phase 3
+    networks:
+      - civic
+    security_opt:
+      - no-new-privileges:true
+
+  mailpit:
+    image: axllent/mailpit:v1.31.2@sha256:74d609a42ec279aa63c6b4622a6fa9b5408d1ad5b1d76a1c4be40a265ce0863d
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s # values to be tuned from measurements in Phase 3
+    networks:
+      - civic
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  civic:
+    name: civic
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  seaweedfs_data:
