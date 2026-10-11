@@ -1,6 +1,6 @@
 # 08: CI/CD Pipeline
 
-> **Status:** Approved (no pull requests for a solo developer, see section 6 and D-030) · **Last updated:** 2026-10-10
+> **Status:** Approved (no pull requests for a solo developer, see section 6 and D-030) · **Last updated:** 2026-10-11
 > CI/CD is worth **3 of 20 marks**. GitHub Actions does all the automation. Security scanners appear as pipeline stages (see `09`).
 
 ---
@@ -23,6 +23,7 @@ GitHub-hosted runners on a public repository are free for standard usage, which 
 - Separate workflows: `infra-ci` (Terraform checks), `deploy`, `release`, and a weekly `scheduled-scan` (see `09`).
 - `concurrency` groups cancel superseded runs and prevent two deploys at once.
 - Docker layer caching keeps builds fast.
+- **Current state (D-034):** one workflow, `ci.yml`, with three jobs (secret scan, Compose validation, repo hygiene) and two check scripts in `.github/scripts/`. The per-service reusable workflows described above arrive with the services in Phase 1.
 
 ## 3. What each service's CI runs
 
@@ -78,7 +79,7 @@ The deploy job connects, runs `helm upgrade --install --atomic` from the shared 
 
 | Decision | Settle in |
 |---|---|
-| Exact workflow filenames and reusable-workflow inputs | Phase 0 / Phase 1 |
+| Reusable-workflow filenames and inputs for the per-service workflows (the first workflow, `ci.yml`, exists: D-034) | Phase 1 |
 | Path-filter rules per service (including shared `/contracts` changes triggering all affected services) | Phase 1 |
 | How the smoke test authenticates and cleans up its test data | Phase 3 |
 | Release notes format and when `v1.0.0` is cut | Phase 5 |

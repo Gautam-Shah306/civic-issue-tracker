@@ -1,6 +1,6 @@
 # 09: DevSecOps
 
-> **Status:** Approved · **Last updated:** 2026-10-10
+> **Status:** Approved · **Last updated:** 2026-10-11
 > DevSecOps is worth **2 of 20 marks**. The assessment names **image, dependency and secret scanning**. Those are the centrepiece, with extras that strengthen the story. All tools are free.
 
 ---
@@ -43,7 +43,7 @@ All scans run on free GitHub runners, so they cost **no memory on the VM**. Resu
 
 ## 4. Supply-chain protections
 
-- **Pin every third-party GitHub Action to a full commit SHA.** Dependabot proposes updates to those pins.
+- **Pin every third-party GitHub Action to a full commit SHA.** Dependabot proposes updates to those pins, and `check-repo-hygiene.sh` fails CI if any `uses:` is not pinned (D-034).
 - **Install scanner binaries at pinned versions and verify checksums**, not a latest tag.
 - **Gitleaks runs as a pinned, checksum-verified binary** (v8.30.1 or later; earlier versions have CVE-2026-63728), never through `gitleaks-action`. The pre-commit hook in `.githooks/` runs it from `.local/bin` and fails closed if it is missing (D-031).
 - **Sign images with Cosign** using GitHub's OIDC identity (free, no keys to store), and **verify the signature in the deploy job** before `helm upgrade`. The cluster then only runs images our pipeline built.
@@ -76,9 +76,9 @@ The three scans the assessment names (image, dependency, secret) are automated g
 | Decision | Settle in |
 |---|---|
 | Pinned versions of OSV-Scanner, Grype, Syft, Hadolint, Checkov, Cosign and ZAP (Gitleaks is pinned at v8.30.1, D-031; verify current status at that time) | Phase 0 / Phase 3 |
-| Allowlist file format and location | Phase 0 |
+| Allowlist entry format and expiry enforcement (the file is `.gitleaks.toml`, D-031; no entries yet) | Phase 3 |
 | Staleness threshold for the Grype database check (maximum age in days) | Phase 3 |
 | ZAP baseline scope and rules to ignore | Phase 3 |
 | Cosign verification identity settings (workflow and repo identity) | Phase 3 / Phase 5 |
-| Dependabot ecosystem entries in `.github/dependabot.yml` (policy settled in D-032; each entry is added with the first manifest of its kind) | Phase 0 to Phase 5 |
+| Dependabot ecosystem entries in `.github/dependabot.yml` (policy settled in D-032; `docker-compose` and `github-actions` are live; `npm` and `pip` come with each service in Phase 1, `terraform` with the first `.tf` file) | Phase 1 to Phase 5 |
 | Re-verify tool status (supply-chain incidents, maintenance state) before Phase 3 | Phase 3 |
