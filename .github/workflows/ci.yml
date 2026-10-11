@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      # From gitleaks_8.30.1_checksums.txt
+      GITLEAKS_CHECKSUM: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+      GITLEAKS_VERSION: 8.30.1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Install Gitleaks
+        run: |
+          wget -qO gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_CHECKSUM}  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo mv gitleaks /usr/local/bin/
+          gitleaks version | grep "^${GITLEAKS_VERSION}$" || { echo "Gitleaks version mismatch"; exit 1; }
+
+      - name: Run Gitleaks
+        run: gitleaks git --verbose --redact --config .gitleaks.toml --exit-code 1
+
+  compose-validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate Docker Compose
+        run: |
+          docker compose version
+          sh .github/scripts/check-compose-policy.sh
+          
+          # Create throwaway env file
+          TMP_ENV="${RUNNER_TEMP}/validate.env"
+          sed 's/CHANGE_ME/dummy/g' deploy/compose/.env.example > "$TMP_ENV"
+          
+          # Must succeed with dummy env
+          docker compose -f deploy/compose/docker-compose.yml --env-file "$TMP_ENV" config -q
+          
+          # Must fail without env
+          if docker compose -f deploy/compose/docker-compose.yml config -q 2>/dev/null; then
+            echo "Compose config succeeded without env file, but it should have failed."
+            exit 1
+          fi
+
+  repo-hygiene:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check Repo Hygiene
+        run: sh .github/scripts/check-repo-hygiene.sh
