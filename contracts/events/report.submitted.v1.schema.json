@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civic-issue-tracker.local/contracts/events/report.submitted.v1.schema.json",
+  "title": "ReportSubmittedV1",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "envelope.v1.schema.json"
+    },
+    {
+      "properties": {
+        "eventType": {
+          "const": "report.submitted"
+        },
+        "version": {
+          "const": 1
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reportId",
+            "reporterId",
+            "title",
+            "description",
+            "category",
+            "location",
+            "submittedAt"
+          ],
+          "properties": {
+            "reportId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "reporterId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "category": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "location": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "lat",
+                "lng"
+              ],
+              "properties": {
+                "lat": {
+                  "type": "number",
+                  "minimum": -90,
+                  "maximum": 90
+                },
+                "lng": {
+                  "type": "number",
+                  "minimum": -180,
+                  "maximum": 180
+                },
+                "address": {
+                  "type": "string",
+                  "maxLength": 300
+                }
+              }
+            },
+            "submittedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

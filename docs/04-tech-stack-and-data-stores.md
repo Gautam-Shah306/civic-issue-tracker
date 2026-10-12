@@ -1,6 +1,6 @@
 # 04: Tech Stack and Data Stores
 
-> **Status:** Approved · **Last updated:** 2026-10-11
+> **Status:** Approved · **Last updated:** 2026-10-12
 > **Guiding rules:** free-tier first, as few moving parts as possible, polyglot by design (two languages).
 
 ---
@@ -75,6 +75,15 @@ Chosen because acknowledgements, retries and dead-letter queues are built in, so
 ### Why SeaweedFS replaced MinIO (verified 2026-10-09)
 MinIO stopped publishing binaries and Docker images in October 2025, went into maintenance mode in December 2025, and was archived by its owner on April 25, 2026. Building it from source would add work and security risk. Services talk to storage through the standard **S3 API**, so the swap affects configuration only. Alternatives considered: **Garage** (very light, needs a one-time layout step) and **RustFS** (newer, more maturity risk). Idle resource use was measured locally on 2026-10-10 (about 63 MiB, see D-033); behaviour under load is re-measured in Phase 4.
 
+## 6. Node service conventions (D-036)
+
+- **Runtime:** Node 24 LTS; Node 26 revisited after it enters LTS.
+- **Package layout:** Independent per-service npm packages with their own lockfile, no workspaces; `services/_template/` is the copy source.
+- **Package manager hardening:** npm only, hardened by a committed per-service `.npmrc` enforcing a release cooldown, disabled install scripts, exact version pinning, and strict engine checks; `npm ci` in CI and Docker.
+- **Language and build:** TypeScript strict mode, ESM, compiled via `tsc` to `dist/`.
+- **Linting, formatting and testing:** ESLint (flat config with typescript-eslint), Prettier, Vitest, Supertest, Testcontainers, and a 60% coverage gate on core logic.
+- **Libraries:** Fastify, Zod with `fastify-type-provider-zod` and `@fastify/swagger`, pino, `pg`, Drizzle ORM with plain SQL migrations, and `rabbitmq-client` (`amqplib` fallback).
+
 ---
 
 ## Deferred decisions
@@ -83,8 +92,6 @@ MinIO stopped publishing binaries and Docker images in October 2025, went into m
 |---|---|
 | Python data access and migrations (SQLAlchemy + Alembic is the suggested default) | Phase 2 |
 | Python test and lint tooling (pytest and Ruff are the suggested defaults) | Phase 2 |
-| Node lint and format tooling (ESLint and Prettier are the suggested defaults) | Start of Phase 1 |
-| `CODE_STYLE.md` contents (conventions for Node/TypeScript and Python) | Phase 0 (first prompt) |
 | Free-tier email service for the live demo | Phase 5 |
 | Re-measure SeaweedFS memory under load (idle about 63 MiB, D-033; Garage stays the fallback) | Phase 4 |
 | Frontend state, routing and UI component approach | Phase 1 |

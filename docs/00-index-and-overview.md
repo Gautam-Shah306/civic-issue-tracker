@@ -87,6 +87,7 @@ flowchart LR
 | 12 | `12-decision-log.md` | Every decision and change of direction, with reasons |
 | , | `PROJECT-INSTRUCTIONS.md` | Instructions for the Claude Project, workflow, prompt template |
 | , | `PROGRESS.md` | Running progress tracker |
+| · | `AGENT-RULES.md` | Standing rules for Antigravity prompts |
 
 ## 6. Rules for using these documents
 

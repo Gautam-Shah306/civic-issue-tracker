@@ -1,6 +1,6 @@
 # 03: Architecture and Communication
 
-> **Status:** Approved · **Last updated:** 2026-10-09
+> **Status:** Approved · **Last updated:** 2026-10-12
 > **Principle:** split by business capability; each service owns its data; keep the service count small enough to run on free-tier resources.
 
 ---
@@ -63,6 +63,8 @@ If Image or Notification is down, events wait in the queue and are processed on 
 | **Idempotent consumers and a DLQ** | Duplicate or retried messages cannot create duplicates. Messages that keep failing go to a dead-letter queue (DAT-03, DAT-04). |
 | **Versioned events with a shared envelope** | Every message follows the envelope above, and events are versioned. |
 | **Master data access** | Report keeps a small local cache of categories, updated through events from Routing, so it can validate categories without a synchronous call. |
+| **RabbitMQ topology** | Defined in `contracts/events/README.md` (D-036) |
+| **Outbox relay** | Polling relay with `FOR UPDATE SKIP LOCKED` every 500 ms; idempotent consumers with an inbox table (D-036) |
 
 ## 4. Trade-offs accepted
 
@@ -76,10 +78,8 @@ If Image or Notification is down, events wait in the queue and are processed on 
 
 | Decision | Settle in |
 |---|---|
-| JSON Schemas for every event (payload fields) | Phase 1 (first events), then per feature |
+| JSON Schemas for the remaining events (the first three exist: D-036) | Phase 1, per feature |
 | OpenAPI specs and endpoint lists per service | Phase 1 onward, per feature |
 | Database schemas and migrations per service | Phase 1 onward, per feature |
-| RabbitMQ topology (exchanges, queues, routing keys, DLQ naming, retry policy) | Phase 1 |
-| Outbox relay mechanism and polling interval | Phase 1 |
 | Gateway route table and rate-limit values | Phase 1 / Phase 4 |
 | Whether Report keeps a local category cache from day one or starts with synchronous lookup | Phase 2 |

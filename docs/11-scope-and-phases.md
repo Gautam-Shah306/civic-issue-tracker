@@ -102,7 +102,6 @@ The 8-service architecture stays regardless, but a service can be built thin. Fo
 | Decision | Settle in |
 |---|---|
 | Sub-steps and ordering inside each phase (planned per phase as it starts) | At the start of each phase |
-| `CODE_STYLE.md` contents | Phase 0 |
 | Ward grid size, names and codes; department and category lists | Phase 2 |
 | Seed script design (language, location, how it is run) | Phase 2 |
 | Load test tool and scenarios | Phase 4 |

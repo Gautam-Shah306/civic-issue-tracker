@@ -1,0 +1,19 @@
+{
+  "type": "https://api.civic-issue-tracker.local/errors/validation-failed",
+  "title": "Validation Failed",
+  "status": 400,
+  "detail": "The request body failed schema validation.",
+  "instance": "/api/v1/reports",
+  "code": "VALIDATION_FAILED",
+  "correlationId": "b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e",
+  "errors": [
+    {
+      "field": "title",
+      "message": "Title must be at least 1 character long"
+    },
+    {
+      "field": "location.lat",
+      "message": "Latitude must be between -90 and 90"
+    }
+  ]
+}

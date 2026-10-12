@@ -1,6 +1,6 @@
 # 05: Docker and Service Standards
 
-> **Status:** Approved · **Last updated:** 2026-10-11
+> **Status:** Approved · **Last updated:** 2026-10-12
 > Docker is worth **4 of 20 marks**. Every service is containerized to the standards below.
 
 ---
@@ -46,6 +46,12 @@ CI uses **path filters**, so a change in one service builds and tests only that 
 ### Registry
 **GitHub Container Registry (GHCR).** Free for public images, lives next to the code, and GitHub Actions can push with the built-in token. Packages are set to **public** so the cluster pulls without credentials. Google Artifact Registry is not used (small free storage allowance).
 
+### Node services (D-036)
+- **Base images:** multi-stage builds build on `node:24-bookworm-slim` and run on `gcr.io/distroless/nodejs24-debian13:nonroot`, both pinned by digest.
+- **Runtime probes:** the distroless runtime container runs as non-root with no shell; health probes run via a `node` script.
+- **Package installation:** `npm ci` in Docker and CI, governed by a committed per-service `.npmrc` (`min-release-age=7`, `ignore-scripts=true`, `save-exact=true`, `engine-strict=true`).
+- **Build cache:** no cross-run build cache in CI yet (plain `docker build`), to be revisited if build times exceed about 5 minutes.
+
 ## 3. Docker Compose and Kubernetes parity
 
 One Compose setup runs all 8 services plus PostgreSQL, RabbitMQ, Redis, SeaweedFS and Mailpit with one command. It mirrors the Kubernetes setup so the move to k3s changes the packaging, not the application.
@@ -66,7 +72,7 @@ One Compose setup runs all 8 services plus PostgreSQL, RabbitMQ, Redis, SeaweedF
 
 - Development happens on a **local Windows machine** (Antigravity runs here).
 - Repo hygiene for Windows: a `.gitattributes` forcing **LF line endings** (`* text=auto eol=lf`) so shell scripts and entrypoints work inside Linux containers.
-- All Docker commands, Compose and the local k3s/kind cluster must work from this machine. Docker Desktop or an equivalent is assumed (confirm in Phase 0).
+- All Docker commands, Compose and the local k3s/kind cluster must work from this machine. Docker Desktop is installed and working (confirmed in Phase 0).
 
 ## 5. Rough resource estimate (to be measured, not trusted)
 
@@ -84,9 +90,6 @@ These are estimates. They are replaced by measured numbers in Phase 3 and Phase 
 
 | Decision | Settle in |
 |---|---|
-| Exact base image for the Node services (Node version, distroless vs slim) | Start of Phase 1 |
 | Exact base image for the Python services (Python version, slim vs distroless) | Phase 2 |
-| Docker runtime on the Windows machine (Docker Desktop with WSL2 assumed) and shell used for commands | Phase 0 |
 | Local Kubernetes tool for rehearsals (k3s or kind) | Phase 3 |
-| Image build cache strategy in CI | Start of Phase 1 |
 | `linux/arm64` builds (only if needed) | Phase 3 or later |

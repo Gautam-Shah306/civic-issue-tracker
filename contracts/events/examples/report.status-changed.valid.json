@@ -1,0 +1,15 @@
+{
+  "eventId": "22222222-3333-4444-8555-666666666666",
+  "eventType": "report.status-changed",
+  "version": 1,
+  "occurredAt": "2026-10-12T12:10:00.000Z",
+  "correlationId": "77777777-8888-4999-9aaa-bbbbbbbbbbbb",
+  "payload": {
+    "reportId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "fromStatus": "Submitted",
+    "toStatus": "Verified",
+    "changedBy": "system",
+    "changedAt": "2026-10-12T12:10:00.000Z",
+    "note": "Automatically verified by triage rules."
+  }
+}

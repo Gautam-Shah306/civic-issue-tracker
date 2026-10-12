@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civic-issue-tracker.local/contracts/events/report.status-changed.v1.schema.json",
+  "title": "ReportStatusChangedV1",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "envelope.v1.schema.json"
+    },
+    {
+      "properties": {
+        "eventType": {
+          "const": "report.status-changed"
+        },
+        "version": {
+          "const": 1
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reportId",
+            "fromStatus",
+            "toStatus",
+            "changedBy",
+            "changedAt"
+          ],
+          "properties": {
+            "reportId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "fromStatus": {
+              "type": ["string", "null"],
+              "enum": [
+                null,
+                "Submitted",
+                "Verified",
+                "Assigned",
+                "In Progress",
+                "Resolved",
+                "Closed",
+                "Rejected",
+                "Reopened"
+              ]
+            },
+            "toStatus": {
+              "type": "string",
+              "enum": [
+                "Submitted",
+                "Verified",
+                "Assigned",
+                "In Progress",
+                "Resolved",
+                "Closed",
+                "Rejected",
+                "Reopened"
+              ]
+            },
+            "changedBy": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "string",
+                  "const": "system"
+                }
+              ]
+            },
+            "changedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "note": {
+              "type": "string",
+              "maxLength": 500
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -22,6 +22,8 @@ docker compose -f deploy/compose/docker-compose.yml up -d --wait --wait-timeout 
 ```
 *Note: The first start pulls images and can take several minutes.*
 
+The stack includes a one-shot `db-init` provisioning service that runs automatically once Postgres is healthy. It idempotently provisions individual databases and roles (`civic_auth`, `civic_report`, `civic_notification`) with passwords from `.env`, restricts database connection access to only each service's own role, and installs required extensions (`postgis` in `civic_report`).
+
 To stop the infrastructure:
 ```powershell
 docker compose -f deploy/compose/docker-compose.yml down

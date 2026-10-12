@@ -5,11 +5,11 @@
 
 ## Status
 
-- **Current phase:** Phase 1, Walking skeleton (not started); Phase 0 exit verified (D-035)
-- **Last verified step:** Phase 0 exit check (Compose infrastructure healthy, CI green, secret scanning on; D-035)
+- **Current phase:** Phase 1, Walking skeleton (in progress)
+- **Last verified step:** Phase 0 exit check passed; Phase 1 kickoff decisions recorded (D-036)
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
 - **Cloud account:** not created (by design; created in Phase 5)
-- **Next action:** Phase 1 kickoff: settle the Node tooling, the Node base image and the CI build-cache strategy (`04`, `05`), then slice 1 (contracts and conventions)
+- **Next action:** Slice 1b: Node service template and CI (`services/_template/`, reusable workflow, contract check), then slice 2: Auth
 
 ## Phase checklist
 
@@ -26,8 +26,13 @@
 - [x] Dependabot: alerts and security updates enabled in repo settings; policy settled (D-032); `docker-compose` and `github-actions` entries committed
 - [x] Phase 0 exit check passed: Compose infrastructure healthy, CI green, secret scanning on (D-035)
 
-### Phase 1: Walking skeleton
-- [ ] Gateway, Auth, Report, Notification, minimal frontend, each with Dockerfile and CI
+- [ ] Slice 1: event and error contracts, topology document, `db-init` (D-036)
+- [ ] Slice 1b: Node service template, reusable workflow, contract check in CI
+- [ ] Slice 2: Auth service (register, login, JWT, `UserCreated`)
+- [ ] Slice 3: Gateway (JWT verification, routing, correlation ID, rate limit)
+- [ ] Slice 4: Report service (submit, my reports, outbox, `ReportSubmitted`, status transitions table)
+- [ ] Slice 5: Notification service (idempotent consumer, email to Mailpit)
+- [ ] Slice 6: minimal frontend (register, login, submit, list)
 - [ ] Dependabot entries added with each first manifest (`npm` and `pip` per service)
 - [ ] Citizen registers, submits a report, email appears in Mailpit via a real event
 
@@ -75,3 +80,4 @@
 | 2026-10-11 | Dependabot `github-actions` entry committed | Committed |
 | 2026-10-11 | GitHub Actions repository settings confirmed by the developer | Verified |
 | 2026-10-11 | Phase 0 exit check passed; Python-related deferred decisions moved to Phase 2 (D-035) | Verified |
+| 2026-10-12 | Phase 1 kickoff decisions recorded (D-036) | Verified |

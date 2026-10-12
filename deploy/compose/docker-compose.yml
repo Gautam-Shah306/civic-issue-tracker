@@ -108,6 +108,29 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  db-init:
+    image: postgis/postgis:18-3.6@sha256:60f6ad1d21ea86a67d47780b9a0d1e1d200500f62b19293fa834d0dea80b8677
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:?Postgres user is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Postgres password is required}
+      POSTGRES_DB: ${POSTGRES_DB:?Postgres database name is required}
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:?Auth DB password is required}
+      REPORT_DB_PASSWORD: ${REPORT_DB_PASSWORD:?Report DB password is required}
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?Notification DB password is required}
+    volumes:
+      - ./db-init:/db-init:ro
+    entrypoint: ["sh", "/db-init/db-init.sh"]
+    networks:
+      - civic
+    security_opt:
+      - no-new-privileges:true
+
 networks:
   civic:
     name: civic
