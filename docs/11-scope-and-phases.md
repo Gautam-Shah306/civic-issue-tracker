@@ -1,6 +1,6 @@
 # 11: Scope and Phases
 
-> **Status:** Approved with updates · **Last updated:** 2026-10-10
+> **Status:** Approved with updates · **Last updated:** 2026-10-11
 > **Team:** one person. **Timeline:** none fixed ("we go as we go"). The plan is ordered so every phase leaves something working and demonstrable, and the riskiest, time-limited parts come last.
 
 ---
@@ -104,6 +104,6 @@ The 8-service architecture stays regardless, but a service can be built thin. Fo
 | Sub-steps and ordering inside each phase (planned per phase as it starts) | At the start of each phase |
 | `CODE_STYLE.md` contents | Phase 0 |
 | Ward grid size, names and codes; department and category lists | Phase 2 |
-| Seed script design (language, location, how it is run) | Phase 0 / Phase 2 |
+| Seed script design (language, location, how it is run) | Phase 2 |
 | Load test tool and scenarios | Phase 4 |
 | README structure and architecture diagram format | Phase 5 |

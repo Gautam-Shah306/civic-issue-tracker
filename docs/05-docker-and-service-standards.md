@@ -84,8 +84,9 @@ These are estimates. They are replaced by measured numbers in Phase 3 and Phase 
 
 | Decision | Settle in |
 |---|---|
-| Exact base image for each service (Node and Python versions, distroless vs slim) | Phase 0 / Phase 1 |
+| Exact base image for the Node services (Node version, distroless vs slim) | Start of Phase 1 |
+| Exact base image for the Python services (Python version, slim vs distroless) | Phase 2 |
 | Docker runtime on the Windows machine (Docker Desktop with WSL2 assumed) and shell used for commands | Phase 0 |
 | Local Kubernetes tool for rehearsals (k3s or kind) | Phase 3 |
-| Image build cache strategy in CI | Phase 0 / Phase 1 |
+| Image build cache strategy in CI | Start of Phase 1 |
 | `linux/arm64` builds (only if needed) | Phase 3 or later |

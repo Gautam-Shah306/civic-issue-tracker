@@ -5,11 +5,11 @@
 
 ## Status
 
-- **Current phase:** Phase 0, Foundations (in progress)
-- **Last verified step:** CI skeleton (first GitHub Actions run green: secret scan, Compose validation, repo hygiene)
+- **Current phase:** Phase 1, Walking skeleton (not started); Phase 0 exit verified (D-035)
+- **Last verified step:** Phase 0 exit check (Compose infrastructure healthy, CI green, secret scanning on; D-035)
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
 - **Cloud account:** not created (by design; created in Phase 5)
-- **Next action:** Phase 0 exit check (confirm GitHub Actions settings; optional CI failure-path test), then Phase 1: walking skeleton
+- **Next action:** Phase 1 kickoff: settle the Node tooling, the Node base image and the CI build-cache strategy (`04`, `05`), then slice 1 (contracts and conventions)
 
 ## Phase checklist
 
@@ -24,6 +24,7 @@
 - [x] Docker Compose infrastructure runs (Postgres/PostGIS, RabbitMQ, Redis, SeaweedFS, Mailpit)
 - [x] CI skeleton green (first run: secret scan, Compose validation, repo hygiene; D-034); Gitleaks and secret scanning on
 - [x] Dependabot: alerts and security updates enabled in repo settings; policy settled (D-032); `docker-compose` and `github-actions` entries committed
+- [x] Phase 0 exit check passed: Compose infrastructure healthy, CI green, secret scanning on (D-035)
 
 ### Phase 1: Walking skeleton
 - [ ] Gateway, Auth, Report, Notification, minimal frontend, each with Dockerfile and CI
@@ -58,8 +59,7 @@
 - All "Deferred decisions" sections in documents `01` to `11`
 - Raise the Docker Desktop VM memory limit (currently 3.757 GiB) before the Phase 3 local Kubernetes test
 - Scan the pinned third-party images (D-033) with Grype in Phase 3
-- Confirm the GitHub Actions repository settings (read-only default token, approval for first-time contributors, SHA-pinning policy if available)
-- Optional before Phase 1: verify the CI failure paths on GitHub with a throwaway branch and `workflow_dispatch`
+- Optional, later: verify the CI failure paths on GitHub with a throwaway branch and `workflow_dispatch`
 
 ## Log
 
@@ -73,3 +73,5 @@
 | 2026-10-10 | Compose infrastructure committed; five services healthy after a clean restart (D-033) | Verified |
 | 2026-10-11 | CI workflow and check scripts committed; first run green (secret scan, Compose validation, repo hygiene) (D-034) | Verified |
 | 2026-10-11 | Dependabot `github-actions` entry committed | Committed |
+| 2026-10-11 | GitHub Actions repository settings confirmed by the developer | Verified |
+| 2026-10-11 | Phase 0 exit check passed; Python-related deferred decisions moved to Phase 2 (D-035) | Verified |
