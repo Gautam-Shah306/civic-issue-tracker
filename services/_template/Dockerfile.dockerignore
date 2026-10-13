@@ -1,0 +1,7 @@
+*
+!services/_template
+!services/_template/**
+!contracts/events/*.schema.json
+services/_template/node_modules
+services/_template/dist
+services/_template/coverage

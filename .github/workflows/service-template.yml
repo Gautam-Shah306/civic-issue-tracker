@@ -19,6 +19,8 @@ permissions: {}
 
 jobs:
   test-template:
+    permissions:
+      contents: read
     uses: ./.github/workflows/node-service.yml
     with:
       service: _template

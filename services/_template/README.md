@@ -29,4 +29,11 @@ This directory is the copy source template for Node.js microservices in the Civi
    - Create `.github/workflows/service-<new-service-name>.yml` calling the reusable workflow `.github/workflows/node-service.yml` with `service: <new-service-name>`.
 
 5. **Generate Dependencies:**
-   - Run `npm install --ignore-scripts --min-release-age=7 --save-exact` inside the Docker builder container to lock dependencies.
+   - Run `npm install --ignore-scripts --min-release-age=7 --save-exact` to lock dependencies.
+
+6. **Container Build (Root Context):**
+   - Microservices are built using the repository root as the build context:
+     ```bash
+     docker build -f services/<new-service-name>/Dockerfile --build-arg SERVICE=<new-service-name> -t civic/<new-service-name>:ci .
+     ```
+   - Each service provides a `Dockerfile.dockerignore` using an allow-list pattern to include only its service directory and shared contracts schemas.

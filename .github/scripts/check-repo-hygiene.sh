@@ -9,11 +9,27 @@ if git ls-files --eol | grep -E "^i/(crlf|mixed)"; then
   ERRORS=1
 fi
 
-# (ii) no tracked file named `.env`, `*.tfstate*`, `*.tfplan`, `*.pem`, `*.key`, `*.p12`, or `*.tfvars` (but allow `*.example`)
-if git ls-files | awk -F/ '($NF ~ /(\.env$|\.tfstate.*$|\.tfplan$|\.pem$|\.key$|\.p12$|\.tfvars$)/ && $NF !~ /\.example$/) { print $0; found=1 } END { exit !found }'; then
+# (ii) no tracked file named `.env`, `*.tfstate*`, `*.tfplan`, `*.pem`, `*.key`, `*.p12`, or `*.tfvars` (but allow `*.example` and `*.smoke.env`)
+if git ls-files | awk -F/ '($NF ~ /(\.env$|\.tfstate.*$|\.tfplan$|\.pem$|\.key$|\.p12$|\.tfvars$)/ && $NF !~ /(\.example$|\.smoke\.env$)/) { print $0; found=1 } END { exit !found }'; then
   echo "Violation: Banned file names found in tracked files."
   ERRORS=1
 fi
+
+# (ii-b) no tracked *.smoke.env file may contain a value longer than 80 characters
+for smoke_file in $(git ls-files '*.smoke.env' '**/*.smoke.env' 2>/dev/null | sort -u); do
+  [ -e "$smoke_file" ] || continue
+  awk -F= '
+    /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=/ {
+      val = $0
+      sub(/^[^=]+=/, "", val)
+      if (length(val) > 80) {
+        print FILENAME ":" NR ": Violation: smoke.env value exceeds 80 characters (length=" length(val) ") -> " substr(val, 1, 20) "..."
+        err = 1
+      }
+    }
+    END { exit err }
+  ' "$smoke_file" || ERRORS=1
+done
 
 # (iii) every `uses:` in .github/workflows/*.yml and .github/workflows/*.yaml is either a local `./` path or pinned to a 40-char hex SHA
 for wf in .github/workflows/*.yml .github/workflows/*.yaml; do

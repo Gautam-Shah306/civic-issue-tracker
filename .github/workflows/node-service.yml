@@ -63,10 +63,32 @@ jobs:
 
       - name: Build container image
         run: |
-          IMAGE_TAG="civic/${SERVICE_NAME}:ci"
-          docker build -t "$IMAGE_TAG" "$SERVICE_PATH"
+          if [ "${SERVICE_NAME}" = "_template" ]; then
+            IMAGE_TAG="civic/service-template:ci"
+          else
+            IMAGE_TAG="civic/${SERVICE_NAME}:ci"
+          fi
+          docker build -f "services/${SERVICE_NAME}/Dockerfile" --build-arg SERVICE="${SERVICE_NAME}" -t "$IMAGE_TAG" .
+
+      - name: Generate smoke test key
+        run: |
+          SMOKE_KEY=$(node -e "const { generateKeyPairSync } = require('crypto'); const { privateKey } = generateKeyPairSync('ed25519'); console.log(Buffer.from(privateKey.export({ type: 'pkcs8', format: 'pem' })).toString('base64'));")
+          echo "::add-mask::$SMOKE_KEY"
+          echo "JWT_PRIVATE_KEY_B64=$SMOKE_KEY" >> "$GITHUB_ENV"
+
+      - name: Smoke test container image
+        run: |
+          if [ "${SERVICE_NAME}" = "_template" ]; then
+            IMAGE_TAG="civic/service-template:ci"
+          else
+            IMAGE_TAG="civic/${SERVICE_NAME}:ci"
+          fi
           CONTAINER_NAME="ci-test-${SERVICE_NAME}"
-          docker run -d --name "$CONTAINER_NAME" -p 3000:3000 "$IMAGE_TAG"
+          ENV_FILE_ARG=""
+          if [ -f "services/${SERVICE_NAME}/ci.smoke.env" ]; then
+            ENV_FILE_ARG="--env-file services/${SERVICE_NAME}/ci.smoke.env"
+          fi
+          docker run -d --name "$CONTAINER_NAME" $ENV_FILE_ARG -e JWT_PRIVATE_KEY_B64 -p 3000:3000 "$IMAGE_TAG"
           
           echo "Polling /healthz..."
           SUCCESS=0

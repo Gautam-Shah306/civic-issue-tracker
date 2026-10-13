@@ -1,6 +1,6 @@
 # 04: Tech Stack and Data Stores
 
-> **Status:** Approved · **Last updated:** 2026-10-12
+> **Status:** Approved · **Last updated:** 2026-10-13
 > **Guiding rules:** free-tier first, as few moving parts as possible, polyglot by design (two languages).
 
 ---
@@ -83,6 +83,11 @@ MinIO stopped publishing binaries and Docker images in October 2025, went into m
 - **Language and build:** TypeScript strict mode, ESM, compiled via `tsc` to `dist/`.
 - **Linting, formatting and testing:** ESLint (flat config with typescript-eslint), Prettier, Vitest, Supertest, Testcontainers, and a 60% coverage gate on core logic.
 - **Libraries:** Fastify, Zod with `fastify-type-provider-zod` and `@fastify/swagger`, pino, `pg`, Drizzle ORM with plain SQL migrations, and `rabbitmq-client` (`amqplib` fallback).
+- **Auth service (D-038):**
+  - **Access tokens:** EdDSA (Ed25519) asymmetric JWTs via `jose`, short-lived (15 minutes), verified across services via public JWKS.
+  - **Refresh tokens:** Opaque 32-byte random tokens stored only as SHA-256 hashes, 7-day TTL, rotated on each refresh, with token-family reuse detection revoking the family.
+  - **Password hashing:** argon2id with config-driven parameters (default 19456 KiB, 2 iterations, parallelism 1) in PHC string format; policy enforces 10–128 characters and distinct from email.
+  - **Migrations & ORM:** Plain-SQL migrations applied by `node dist/migrate.js` with advisory lock and checksums; Drizzle ORM for queries.
 
 ---
 
@@ -95,4 +100,3 @@ MinIO stopped publishing binaries and Docker images in October 2025, went into m
 | Free-tier email service for the live demo | Phase 5 |
 | Re-measure SeaweedFS memory under load (idle about 63 MiB, D-033; Garage stays the fallback) | Phase 4 |
 | Frontend state, routing and UI component approach | Phase 1 |
-| Refresh-token storage and rotation details | Phase 1 |

@@ -1,6 +1,6 @@
 # 05: Docker and Service Standards
 
-> **Status:** Approved · **Last updated:** 2026-10-12
+> **Status:** Approved · **Last updated:** 2026-10-13
 > Docker is worth **4 of 20 marks**. Every service is containerized to the standards below.
 
 ---
@@ -51,6 +51,7 @@ CI uses **path filters**, so a change in one service builds and tests only that 
 - **Runtime probes:** the distroless runtime container runs as non-root with no shell; health probes run via a `node` script.
 - **Package installation:** `npm ci` in Docker and CI, governed by a committed per-service `.npmrc` (`min-release-age=7`, `ignore-scripts=true`, `save-exact=true`, `engine-strict=true`).
 - **Build cache:** no cross-run build cache in CI yet (plain `docker build`), to be revisited if build times exceed about 5 minutes.
+- **Root-context build convention (D-038):** builds use the repository root as context (`docker build -f services/<svc>/Dockerfile --build-arg SERVICE=<svc> .`) with an allow-list `Dockerfile.dockerignore` per service, so event schemas from `contracts/events/` and migrations are copied into the runtime image.
 
 ## 3. Docker Compose and Kubernetes parity
 

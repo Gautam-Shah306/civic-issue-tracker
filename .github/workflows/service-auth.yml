@@ -1,0 +1,26 @@
+name: Auth Service CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/auth/**'
+      - '.github/workflows/node-service.yml'
+      - 'contracts/**'
+  pull_request:
+    paths:
+      - 'services/auth/**'
+      - '.github/workflows/node-service.yml'
+      - 'contracts/**'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  test-auth:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/node-service.yml
+    with:
+      service: auth

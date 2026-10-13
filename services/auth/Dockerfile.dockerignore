@@ -1,0 +1,7 @@
+*
+!services/auth
+!services/auth/**
+!contracts/events/*.schema.json
+services/auth/node_modules
+services/auth/dist
+services/auth/coverage

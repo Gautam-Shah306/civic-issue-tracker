@@ -131,6 +131,70 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  auth-migrate:
+    profiles:
+      - app
+    build:
+      context: ../..
+      dockerfile: services/auth/Dockerfile
+      args:
+        SERVICE: auth
+    command: ["dist/migrate.js"]
+    restart: "no"
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: civic_auth
+      DB_USER: civic_auth
+      DB_PASSWORD: ${AUTH_DB_PASSWORD:?Auth DB password is required}
+    networks:
+      - civic
+    security_opt:
+      - no-new-privileges:true
+
+  auth:
+    profiles:
+      - app
+    build:
+      context: ../..
+      dockerfile: services/auth/Dockerfile
+      args:
+        SERVICE: auth
+    restart: unless-stopped
+    depends_on:
+      auth-migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: civic_auth
+      DB_USER: civic_auth
+      DB_PASSWORD: ${AUTH_DB_PASSWORD:?Auth DB password is required}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:?RabbitMQ user is required}:${RABBITMQ_PASSWORD:?RabbitMQ password is required}@rabbitmq:5672
+      JWT_PRIVATE_KEY_B64: ${JWT_PRIVATE_KEY_B64:?JWT private key is required}
+      CONTRACTS_DIR: /app/contracts
+    healthcheck:
+      test: ["CMD", "/nodejs/bin/node", "dist/healthcheck.js"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks:
+      - civic
+    security_opt:
+      - no-new-privileges:true
+
 networks:
   civic:
     name: civic

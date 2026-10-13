@@ -6,10 +6,10 @@
 ## Status
 
 - **Current phase:** Phase 1, Walking skeleton (in progress)
-- **Last verified step:** Slice 1b verified (contracts package, Node service template, reusable CI workflow; D-037)
+- **Last verified step:** Slice 2: Auth service (register, login, refresh, logout, JWT, user.created) end to end in Compose (D-038)
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
 - **Cloud account:** not created (by design; created in Phase 5)
-- **Next action:** Slice 2: Auth service
+- **Next action:** Slice 3: Gateway
 
 ## Phase checklist
 
@@ -30,7 +30,7 @@
 
 - [x] Slice 1: event and error contracts, topology document, `db-init` (D-036)
 - [x] Slice 1b: Node service template, reusable workflow, contract check in CI
-- [ ] Slice 2: Auth service (register, login, JWT, `UserCreated`)
+- [x] Slice 2: Auth service (register, login, JWT, `UserCreated`)
 - [ ] Slice 3: Gateway (JWT verification, routing, correlation ID, rate limit)
 - [ ] Slice 4: Report service (submit, my reports, outbox, `ReportSubmitted`, status transitions table)
 - [ ] Slice 5: Notification service (idempotent consumer, email to Mailpit)
@@ -84,3 +84,4 @@
 | 2026-10-11 | Phase 0 exit check passed; Python-related deferred decisions moved to Phase 2 (D-035) | Verified |
 | 2026-10-12 | Phase 1 kickoff decisions recorded (D-036) | Verified |
 | 2026-10-12 | Slice 1b verified (contracts package, Node service template, reusable CI workflow; D-037) | Verified |
+| 2026-10-13 | Slice 2: Auth service (register, login, refresh, logout, JWT, user.created) end to end in Compose (D-038) | Verified |

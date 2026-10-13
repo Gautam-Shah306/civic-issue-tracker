@@ -1,0 +1,301 @@
+{
+  "components": {
+    "schemas": {}
+  },
+  "info": {
+    "description": "Authentication, citizen profile management, and JWKS token issuance",
+    "title": "Auth & User Service",
+    "version": "0.1.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/v1/auth/jwks.json": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "def": {
+                  "shape": {
+                    "email": {
+                      "def": {
+                        "checks": [
+                          {
+                            "def": {
+                              "abort": false,
+                              "check": "string_format",
+                              "format": "email",
+                              "pattern": {},
+                              "type": "string"
+                            },
+                            "type": "string"
+                          },
+                          {}
+                        ],
+                        "type": "string"
+                      },
+                      "type": "string"
+                    },
+                    "password": {
+                      "def": {
+                        "checks": [
+                          {},
+                          {}
+                        ],
+                        "type": "string"
+                      },
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "def": {
+                  "shape": {
+                    "refreshToken": {
+                      "def": {
+                        "checks": [
+                          {}
+                        ],
+                        "type": "string"
+                      },
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "def": {
+                  "shape": {
+                    "refreshToken": {
+                      "def": {
+                        "checks": [
+                          {}
+                        ],
+                        "type": "string"
+                      },
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "def": {
+                  "checks": [
+                    {
+                      "def": {
+                        "check": "custom",
+                        "path": [
+                          "password"
+                        ],
+                        "type": "custom"
+                      },
+                      "type": "custom"
+                    }
+                  ],
+                  "shape": {
+                    "displayName": {
+                      "def": {
+                        "in": {
+                          "def": {
+                            "checks": [
+                              {},
+                              {}
+                            ],
+                            "type": "string"
+                          },
+                          "type": "string"
+                        },
+                        "out": {
+                          "def": {
+                            "type": "transform"
+                          },
+                          "type": "transform"
+                        },
+                        "type": "pipe"
+                      },
+                      "in": {
+                        "def": {
+                          "checks": [
+                            {},
+                            {}
+                          ],
+                          "type": "string"
+                        },
+                        "type": "string"
+                      },
+                      "out": {
+                        "def": {
+                          "type": "transform"
+                        },
+                        "type": "transform"
+                      },
+                      "type": "pipe"
+                    },
+                    "email": {
+                      "def": {
+                        "checks": [
+                          {
+                            "def": {
+                              "abort": false,
+                              "check": "string_format",
+                              "format": "email",
+                              "pattern": {},
+                              "type": "string"
+                            },
+                            "type": "string"
+                          },
+                          {}
+                        ],
+                        "type": "string"
+                      },
+                      "type": "string"
+                    },
+                    "password": {
+                      "def": {
+                        "checks": [
+                          {},
+                          {}
+                        ],
+                        "type": "string"
+                      },
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "def": {
+                    "shape": {
+                      "displayName": {
+                        "def": {
+                          "type": "string"
+                        },
+                        "type": "string"
+                      },
+                      "email": {
+                        "def": {
+                          "type": "string"
+                        },
+                        "type": "string"
+                      },
+                      "id": {
+                        "def": {
+                          "checks": [
+                            {
+                              "def": {
+                                "abort": false,
+                                "check": "string_format",
+                                "format": "uuid",
+                                "pattern": {},
+                                "type": "string"
+                              },
+                              "type": "string"
+                            }
+                          ],
+                          "type": "string"
+                        },
+                        "type": "string"
+                      },
+                      "role": {
+                        "def": {
+                          "type": "string"
+                        },
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Default Response"
+          }
+        }
+      }
+    }
+  }
+}

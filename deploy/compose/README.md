@@ -29,6 +29,18 @@ To stop the infrastructure:
 docker compose -f deploy/compose/docker-compose.yml down
 ```
 
+### Application Services (Profile `app`)
+To run the full application stack including microservices (starting with Auth service):
+```powershell
+docker compose -f deploy/compose/docker-compose.yml --profile app up -d --build --wait
+```
+This runs `auth-migrate` to execute database migrations, then starts `auth` on port 3001.
+
+To stop the full application stack:
+```powershell
+docker compose -f deploy/compose/docker-compose.yml --profile app down
+```
+
 **WARNING:** To completely destroy the environment and wipe all data volumes, run:
 ```powershell
 docker compose -f deploy/compose/docker-compose.yml down -v
@@ -43,3 +55,4 @@ All services bind to `127.0.0.1` locally:
 | Redis | 6379 | Cache and rate-limits |
 | SeaweedFS | 8333 | S3 compatible storage |
 | Mailpit | 1025, 8025 | SMTP and Web UI |
+| Auth Service | 3001 | Auth & User API (`/api/v1/auth`, `/.well-known/jwks.json`) |

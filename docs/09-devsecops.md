@@ -1,6 +1,6 @@
 # 09: DevSecOps
 
-> **Status:** Approved · **Last updated:** 2026-10-11
+> **Status:** Approved · **Last updated:** 2026-10-13
 > DevSecOps is worth **2 of 20 marks**. The assessment names **image, dependency and secret scanning**. Those are the centrepiece, with extras that strengthen the story. All tools are free.
 
 ---
@@ -53,7 +53,7 @@ All scans run on free GitHub runners, so they cost **no memory on the VM**. Resu
 ## 5. Keeping scanning current
 
 - **Weekly scheduled workflow** re-scans the published images, because new vulnerabilities appear after a build.
-- **Dependabot weekly** for npm, pip, Docker base images, Docker Compose, GitHub Actions and Terraform providers. Policy (D-032): 7-day cooldown on version updates, minor and patch updates grouped, update PRs merged from the GitHub UI after CI is green.
+- **Dependabot weekly** for npm, pip, Docker base images, Docker Compose, GitHub Actions and Terraform providers. Policy (D-032): 7-day cooldown on version updates, minor and patch updates grouped, update PRs merged from the GitHub UI after CI is green. Major version bumps are decisions, not automation: they are ignored in `dependabot.yml` (D-038).
 
 ## 6. Secret handling and runtime security
 
