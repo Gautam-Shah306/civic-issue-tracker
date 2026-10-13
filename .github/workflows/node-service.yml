@@ -72,9 +72,13 @@ jobs:
 
       - name: Generate smoke test key
         run: |
-          SMOKE_KEY=$(node -e "const { generateKeyPairSync } = require('crypto'); const { privateKey } = generateKeyPairSync('ed25519'); console.log(Buffer.from(privateKey.export({ type: 'pkcs8', format: 'pem' })).toString('base64'));")
-          echo "::add-mask::$SMOKE_KEY"
-          echo "JWT_PRIVATE_KEY_B64=$SMOKE_KEY" >> "$GITHUB_ENV"
+          KEYS_JSON=$(node -e "const { generateKeyPairSync } = require('crypto'); const { privateKey, publicKey } = generateKeyPairSync('ed25519'); const priv = Buffer.from(privateKey.export({ type: 'pkcs8', format: 'pem' })).toString('base64'); const pub = Buffer.from(publicKey.export({ type: 'spki', format: 'pem' })).toString('base64'); console.log(JSON.stringify({ priv, pub }));")
+          PRIV_KEY=$(node -e "console.log(JSON.parse(process.argv[1]).priv);" "$KEYS_JSON")
+          PUB_KEY=$(node -e "console.log(JSON.parse(process.argv[1]).pub);" "$KEYS_JSON")
+          echo "::add-mask::$PRIV_KEY"
+          echo "::add-mask::$PUB_KEY"
+          echo "JWT_PRIVATE_KEY_B64=$PRIV_KEY" >> "$GITHUB_ENV"
+          echo "JWT_PUBLIC_KEY_B64=$PUB_KEY" >> "$GITHUB_ENV"
 
       - name: Smoke test container image
         run: |
@@ -88,7 +92,7 @@ jobs:
           if [ -f "services/${SERVICE_NAME}/ci.smoke.env" ]; then
             ENV_FILE_ARG="--env-file services/${SERVICE_NAME}/ci.smoke.env"
           fi
-          docker run -d --name "$CONTAINER_NAME" $ENV_FILE_ARG -e JWT_PRIVATE_KEY_B64 -p 3000:3000 "$IMAGE_TAG"
+          docker run -d --name "$CONTAINER_NAME" $ENV_FILE_ARG -e JWT_PRIVATE_KEY_B64 -e JWT_PUBLIC_KEY_B64 -p 3000:3000 "$IMAGE_TAG"
           
           echo "Polling /healthz..."
           SUCCESS=0

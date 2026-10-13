@@ -118,13 +118,13 @@ To guarantee reliable at-least-once message delivery without distributed two-pha
 
 ```sql
 CREATE TABLE IF NOT EXISTS outbox_events (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     event_id UUID NOT NULL UNIQUE,
-    event_type VARCHAR(128) NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1,
+    event_type VARCHAR(100) NOT NULL,
+    version SMALLINT NOT NULL DEFAULT 1,
     correlation_id UUID NOT NULL,
     payload JSONB NOT NULL,
-    occurred_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+    occurred_at TIMESTAMPTZ NOT NULL,
     published_at TIMESTAMPTZ NULL
 );
 
@@ -156,7 +156,7 @@ The outbox relay runs as an asynchronous background loop inside the owning servi
    Upon confirm:
    ```sql
    UPDATE outbox_events
-   SET published_at = clock_timestamp()
+   SET published_at = NOW()
    WHERE id = $1;
    ```
 4. **Relay Interval:** Polling runs on a configurable interval (default: 500 ms) when idle, or immediately loops if a full batch (50 items) was processed.

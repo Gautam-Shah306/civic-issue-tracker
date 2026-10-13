@@ -30,11 +30,11 @@ docker compose -f deploy/compose/docker-compose.yml down
 ```
 
 ### Application Services (Profile `app`)
-To run the full application stack including microservices (starting with Auth service):
+To run the full application stack including microservices (Gateway, Auth, Report):
 ```powershell
 docker compose -f deploy/compose/docker-compose.yml --profile app up -d --build --wait
 ```
-This runs `auth-migrate` to execute database migrations, then starts `auth` on port 3001.
+This runs `auth-migrate` and `report-migrate` to execute database migrations, starts internal services (`auth`, `report`), and starts `gateway` on port 8080.
 
 To stop the full application stack:
 ```powershell
@@ -47,7 +47,7 @@ docker compose -f deploy/compose/docker-compose.yml down -v
 ```
 
 ## Ports
-All services bind to `127.0.0.1` locally:
+All exposed services bind strictly to `127.0.0.1` locally:
 | Service | Port | Description |
 |---|---|---|
 | Postgres | 5432 | Database |
@@ -55,4 +55,4 @@ All services bind to `127.0.0.1` locally:
 | Redis | 6379 | Cache and rate-limits |
 | SeaweedFS | 8333 | S3 compatible storage |
 | Mailpit | 1025, 8025 | SMTP and Web UI |
-| Auth Service | 3001 | Auth & User API (`/api/v1/auth`, `/.well-known/jwks.json`) |
+| Gateway | 8080 | Unified API Gateway (`/api/v1/*`, `/healthz`, `/readyz`) |

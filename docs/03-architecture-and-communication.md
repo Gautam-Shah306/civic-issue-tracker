@@ -1,6 +1,6 @@
 # 03: Architecture and Communication
 
-> **Status:** Approved · **Last updated:** 2026-10-12
+> **Status:** Approved · **Last updated:** 2026-10-13
 > **Principle:** split by business capability; each service owns its data; keep the service count small enough to run on free-tier resources.
 
 ---
@@ -71,6 +71,27 @@ If Image or Notification is down, events wait in the queue and are processed on 
 - **Service count vs. free tier.** Eight deployables is heavy for free resources. Mitigated by running 2 replicas only on critical services (see `06`).
 - **Eventual consistency.** A citizen may briefly see *Submitted* before *Assigned*. Accepted (DAT-02).
 - **Choreography vs. orchestration.** Choreography is simpler and loosely coupled for this flow, but the end-to-end flow is harder to see in one place. The correlation ID and structured logging (OBS-01) are the mitigation.
+
+## 5. Status transitions (D-040)
+
+| From | To | Allowed |
+|---|---|---|
+| (new) | Submitted | citizen, officer, admin (creator) |
+| Submitted | Verified | officer, admin |
+| Submitted | Assigned | admin, system |
+| Submitted | Rejected | officer, admin |
+| Verified | Assigned | admin, system |
+| Verified | Rejected | officer, admin |
+| Assigned | In Progress | officer, admin |
+| Assigned | Rejected | officer, admin |
+| In Progress | Resolved | officer, admin |
+| Resolved | Closed | admin, system |
+| Resolved | Reopened | citizen (own report), admin |
+| Closed | Reopened | citizen (own report), admin |
+| Reopened | Assigned | admin, system |
+| Reopened | In Progress | officer, admin |
+
+Rejected is terminal. Rejection needs a reason code (duplicate, invalid, out_of_jurisdiction) and an optional note (STS-07). `system` transitions are made by event consumers (cycle 4) and are not callable through the API. Every transition writes a history row and publishes `report.status-changed`.
 
 ---
 

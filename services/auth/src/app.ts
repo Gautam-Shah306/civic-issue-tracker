@@ -7,6 +7,7 @@ import { Config } from './config.js';
 import { createLogger } from './logger.js';
 import { formatProblemDetails, AppError } from './errors.js';
 import { TokenService, createTokenService } from './auth/tokens.js';
+import { initDummyHash } from './auth/password.js';
 import { EventValidator, createEventValidator } from './events/validator.js';
 import { authRoutes } from './routes/auth.js';
 
@@ -26,6 +27,8 @@ export interface AppDependencies {
 }
 
 export async function buildApp(config: Config, deps: AppDependencies = {}) {
+  await initDummyHash(config);
+
   const rootLogger = createLogger({
     serviceName: config.SERVICE_NAME,
     level: config.LOG_LEVEL

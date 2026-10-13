@@ -169,8 +169,6 @@ services:
         condition: service_completed_successfully
       rabbitmq:
         condition: service_healthy
-    ports:
-      - "127.0.0.1:3001:3000"
     environment:
       PORT: 3000
       DB_HOST: postgres
@@ -181,6 +179,108 @@ services:
       RABBITMQ_URL: amqp://${RABBITMQ_USER:?RabbitMQ user is required}:${RABBITMQ_PASSWORD:?RabbitMQ password is required}@rabbitmq:5672
       JWT_PRIVATE_KEY_B64: ${JWT_PRIVATE_KEY_B64:?JWT private key is required}
       CONTRACTS_DIR: /app/contracts
+    healthcheck:
+      test: ["CMD", "/nodejs/bin/node", "dist/healthcheck.js"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks:
+      - civic
+    security_opt:
+      - no-new-privileges:true
+
+  report-migrate:
+    profiles:
+      - app
+    build:
+      context: ../..
+      dockerfile: services/report/Dockerfile
+      args:
+        SERVICE: report
+    command: ["dist/migrate.js"]
+    restart: "no"
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: civic_report
+      DB_USER: civic_report
+      DB_PASSWORD: ${REPORT_DB_PASSWORD:?Report DB password is required}
+    networks:
+      - civic
+    security_opt:
+      - no-new-privileges:true
+
+  report:
+    profiles:
+      - app
+    build:
+      context: ../..
+      dockerfile: services/report/Dockerfile
+      args:
+        SERVICE: report
+    restart: unless-stopped
+    depends_on:
+      report-migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: civic_report
+      DB_USER: civic_report
+      DB_PASSWORD: ${REPORT_DB_PASSWORD:?Report DB password is required}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:?RabbitMQ user is required}:${RABBITMQ_PASSWORD:?RabbitMQ password is required}@rabbitmq:5672
+      JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?JWT public key is required}
+      CONTRACTS_DIR: /app/contracts
+    healthcheck:
+      test: ["CMD", "/nodejs/bin/node", "dist/healthcheck.js"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks:
+      - civic
+    security_opt:
+      - no-new-privileges:true
+
+  gateway:
+    profiles:
+      - app
+    build:
+      context: ../..
+      dockerfile: services/gateway/Dockerfile
+      args:
+        SERVICE: gateway
+    restart: unless-stopped
+    depends_on:
+      auth:
+        condition: service_healthy
+      report:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:3000"
+    environment:
+      PORT: 3000
+      AUTH_SERVICE_URL: http://auth:3000
+      REPORT_SERVICE_URL: http://report:3000
+      REDIS_URL: redis://:${REDIS_PASSWORD:?Redis password is required}@redis:6379/0
+      JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?JWT public key is required}
+      CORS_ORIGINS: "*"
     healthcheck:
       test: ["CMD", "/nodejs/bin/node", "dist/healthcheck.js"]
       interval: 10s

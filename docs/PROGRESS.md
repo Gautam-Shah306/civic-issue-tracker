@@ -9,7 +9,22 @@
 - **Last verified step:** Slice 2: Auth service (register, login, refresh, logout, JWT, user.created) end to end in Compose (D-038)
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
 - **Cloud account:** not created (by design; created in Phase 5)
-- **Next action:** Slice 3: Gateway
+- **Next action:** v1 cycle 3: Notification + Analytics & Audit
+
+## v1 plan (D-039)
+
+Phase checklists below describe the full scope; D-039 supersedes them where they differ.
+
+- [x] Cycle 1: Auth (committed)
+- [ ] Cycle 2: Gateway + Report
+- [ ] Cycle 3: Notification + Analytics & Audit
+- [ ] Cycle 4: Python base + Image + Routing
+- [ ] Cycle 5: Web Frontend + backend gaps
+- [ ] Cycle 6: Local Kubernetes
+- [ ] Cycle 7: Pipeline and DevSecOps
+- [ ] Cycle 8: Terraform and GCP
+- [ ] Cycle 9: Go-live finish
+- [ ] Cycle 10: Buffer
 
 ## Phase checklist
 
@@ -85,3 +100,4 @@
 | 2026-10-12 | Phase 1 kickoff decisions recorded (D-036) | Verified |
 | 2026-10-12 | Slice 1b verified (contracts package, Node service template, reusable CI workflow; D-037) | Verified |
 | 2026-10-13 | Slice 2: Auth service (register, login, refresh, logout, JWT, user.created) end to end in Compose (D-038) | Verified |
+| 2026-10-13 | v1 plan recorded (D-039); Gateway + Report (D-040) | In progress |

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   hashPassword,
   verifyPassword,
+  initDummyHash,
   performDummyVerification,
   validatePasswordPolicy
 } from '../../src/auth/password.js';
@@ -54,7 +55,11 @@ describe('Password Hashing and Policy (argon2id)', () => {
     expect(checkWrong).toBe(false);
   });
 
-  it('performs dummy verification without throwing', async () => {
+  it('computes dynamic dummy hash matching configured parameters and verifies safely', async () => {
+    const computedDummy = await initDummyHash(dummyConfig);
+    expect(computedDummy).toMatch(
+      /^\$argon2id\$v=19\$m=19456,t=2,p=1\$[A-Za-z0-9+/=_-]+\$[A-Za-z0-9+/=_-]+$/
+    );
     await expect(performDummyVerification('test-password')).resolves.not.toThrow();
   });
 

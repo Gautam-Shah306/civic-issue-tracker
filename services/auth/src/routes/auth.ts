@@ -91,6 +91,9 @@ export const authRoutes: FastifyPluginAsync<AuthRouteOptions> = async (
         });
       }
 
+      // Hash password BEFORE acquiring client or opening transaction
+      const passwordHash = await hashPassword(password, config);
+
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
@@ -110,7 +113,6 @@ export const authRoutes: FastifyPluginAsync<AuthRouteOptions> = async (
           });
         }
 
-        const passwordHash = await hashPassword(password, config);
         const userId = randomUUID();
         const now = new Date();
         const role = 'citizen';
@@ -163,8 +165,20 @@ export const authRoutes: FastifyPluginAsync<AuthRouteOptions> = async (
           displayName: newUser.display_name,
           role: newUser.role
         });
-      } catch (err) {
+      } catch (err: unknown) {
         await client.query('ROLLBACK').catch(() => {});
+        if (
+          err &&
+          typeof err === 'object' &&
+          'code' in err &&
+          (err as { code?: string }).code === '23505'
+        ) {
+          throw new AppError({
+            statusCode: 409,
+            code: 'email_taken',
+            message: 'Email is already registered'
+          });
+        }
         throw err;
       } finally {
         client.release();

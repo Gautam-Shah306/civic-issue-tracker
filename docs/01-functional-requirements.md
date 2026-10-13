@@ -1,6 +1,6 @@
 # 01: Functional Requirements
 
-> **Status:** Approved · **Last updated:** 2026-10-09
+> **Status:** Approved · **Last updated:** 2026-10-13
 > **Scope rule:** implement all **[Core]** and **[Should]** items. **[Optional]** items stay open and are built later only if the need arises.
 
 Each requirement has an ID. Use the ID in prompts, commits, tests and pull requests.
@@ -144,6 +144,7 @@ Each requirement has an ID. Use the ID in prompts, commits, tests and pull reque
 
 - **Data is synthetic.** Wards, departments, categories, users and reports are generated (see `11`). No real ward data is used.
 - **If time runs short**, **[Should]** items are dropped in the order given in `11-scope-and-phases.md` section 5. Core items are never dropped.
+- v2 candidates are listed in D-039 (docs/12).
 
 ## Deferred decisions
 
@@ -151,7 +152,6 @@ These were intentionally left open. Settle each in the phase shown and record it
 
 | Decision | Settle in |
 |---|---|
-| Exact status transition table (who may move a report from which status to which) | Phase 1 |
 | Report categories and the category-to-department mapping | Phase 2 |
 | SLA values per category | Phase 4 |
 | Priority scoring formula | Phase 4 |

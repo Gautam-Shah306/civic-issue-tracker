@@ -1,0 +1,26 @@
+name: Gateway Service CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/gateway/**'
+      - '.github/workflows/node-service.yml'
+      - 'contracts/**'
+  pull_request:
+    paths:
+      - 'services/gateway/**'
+      - '.github/workflows/node-service.yml'
+      - 'contracts/**'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  test-gateway:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/node-service.yml
+    with:
+      service: gateway

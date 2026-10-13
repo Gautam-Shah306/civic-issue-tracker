@@ -1,9 +1,32 @@
 # 11: Scope and Phases
 
-> **Status:** Approved with updates · **Last updated:** 2026-10-11
+> **Status:** Approved with updates · **Last updated:** 2026-10-13
 > **Team:** one person. **Timeline:** none fixed ("we go as we go"). The plan is ordered so every phase leaves something working and demonstrable, and the riskiest, time-limited parts come last.
 
 ---
+
+## 0. v1 and v2 (D-039)
+
+Phases 2 to 5 below describe the full scope; v1 delivers their Core parts in the cycles above; the rest is v2.
+
+### 10-cycle v1 delivery plan
+
+| Cycle | Focus | Scope |
+|---|---|---|
+| (1) | Auth | Auth service (register, login, refresh, logout, me, JWT, user.created event) [done] |
+| (2) | Gateway + Report | Gateway reverse proxy and Report service (submit, mine, status lifecycle, PostGIS spatial queries, outbox events) |
+| (3) | Notification + Analytics & Audit | Notification (email via Mailpit) and Analytics & Audit read side and audit log |
+| (4) | Python base + Image + Routing | Python base image, Image processing (SeaweedFS), Routing (wards, categories, departments) |
+| (5) | Web Frontend + backend gaps | Responsive web frontend plus backend gaps (officer creation, user activation, seed data) |
+| (6) | Local Kubernetes | Shared Helm chart, probes, 2 replicas on critical services, CPU autoscaling, default-deny network policies, Sealed Secrets, Traefik |
+| (7) | Pipeline and DevSecOps | GHCR publish, Syft and Grype, OSV-Scanner, Hadolint, CodeQL, Checkov, automated deploy, post-deploy smoke, a short load run showing scale-up |
+| (8) | Terraform and GCP | VM, k3s, DNS and TLS, first pipeline deploy; cloud account created |
+| (9) | Go-live finish | Smoke on the public URL, seed data, README, architecture diagram, demo script |
+| (10) | Buffer | Buffer cycle for polish, fixes, and demonstration preparation |
+
+### Deferred to v2
+
+v2 = duplicate detection, comments, upvotes, moderation and flagging, password reset, SLA escalation, priority scoring, assignment to a specific officer, multiple photos, in-app notifications, edit or cancel, statistics page, heatmap, exports, Prometheus and Grafana, backups with a restore test, the full load test, the kind integration test in CI, ZAP, Cosign signing, SARIF upload, API aggregation. The frontend is a responsive web app only (no native or mobile app). The cloud account is created at the end of v1 (cycle 8), earlier than planned in D-013, so the credit clock starts sooner; the VM is stopped between demos.
 
 ## 1. Build strategy
 
@@ -21,7 +44,7 @@
 | **1. Walking skeleton** | Gateway, Auth, Report (submit and basic status), Notification, minimal frontend, a Dockerfile and CI per service | A citizen registers, submits a report, and an email appears in Mailpit through a real event |
 | **2. Core features** | Image processing, Routing and Assignment (wards, departments, categories), full status lifecycle, officer and admin dashboards, public map and list, Analytics and Audit | Every **[Core]** functional requirement works locally |
 | **3. Platform and security** | Shared Helm chart, local k3s or kind deployment, probes, autoscaling, network policies, Sealed Secrets, kind integration test in CI, all DevSecOps gates | The whole system deploys to a local Kubernetes cluster through the pipeline, with scans green |
-| **4. Should features and proof** | Duplicate detection, SLA escalation, comments, upvotes, password reset, rate limiting, monitoring dashboards, backups, API docs, load test | **[Should]** items done, non-functional targets measured, memory fits the 8 GB budget |
+| **4. Should features and proof (v2)** | Duplicate detection, SLA escalation, comments, upvotes, password reset, rate limiting, monitoring dashboards, backups, API docs, load test | **[Should]** items done, non-functional targets measured, memory fits the 8 GB budget |
 | **5. Go-live** | Create the GCP account, run Terraform (manual apply), bootstrap the cluster, DNS and TLS, deploy through the pipeline, smoke tests, demo rehearsal, README and architecture diagram | Public HTTPS link works, then stays live for about a month before `terraform destroy` |
 
 Phases 3 and 4 can overlap, but Phase 3 comes first because it secures most of the marks.

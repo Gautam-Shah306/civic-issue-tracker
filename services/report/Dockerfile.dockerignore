@@ -1,0 +1,7 @@
+*
+!services/report
+!services/report/**
+!contracts/events/*.schema.json
+services/report/node_modules
+services/report/dist
+services/report/coverage

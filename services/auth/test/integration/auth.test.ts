@@ -102,7 +102,7 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
       isRabbitReady: () => true
     });
     await app.ready();
-  }, 120000);
+  }, 240000);
 
   afterAll(async () => {
     if (outboxRelay) await outboxRelay.stop().catch(() => {});
@@ -225,6 +225,26 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
 
     expect(second.status).toBe(409);
     expect(second.body.code).toBe('email_taken');
+  });
+
+  it('handles concurrent registrations of the same email: exactly one 201 and one 409, no 500', async () => {
+    const concurrentEmail = `concurrent_${Date.now()}@example.com`;
+    const pw = 'SafePassword123!';
+
+    const [res1, res2] = await Promise.all([
+      request(app.server)
+        .post('/api/v1/auth/register')
+        .send({ email: concurrentEmail, password: pw, displayName: 'Concurrent One' }),
+      request(app.server)
+        .post('/api/v1/auth/register')
+        .send({ email: concurrentEmail, password: pw, displayName: 'Concurrent Two' })
+    ]);
+
+    const statuses = [res1.status, res2.status].sort();
+    expect(statuses).toEqual([201, 409]);
+
+    const res409 = res1.status === 409 ? res1 : res2;
+    expect(res409.body.code).toBe('email_taken');
   });
 
   it('rejects weak password and password matching email with 400 validation_error', async () => {

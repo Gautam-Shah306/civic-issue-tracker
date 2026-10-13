@@ -1,6 +1,6 @@
 # 10: Hosting and Cost
 
-> **Status:** Approved · **Last updated:** 2026-10-09
+> **Status:** Approved · **Last updated:** 2026-10-13
 > Cloud/local hosting is worth **2 marks** and the public link **2 marks**.
 > **Cost rule:** everything stays within free-tier resources. Paid resources are a **last resort**.
 > **Volatile facts below were verified on 2026-10-09. Re-check them before cloud sign-up (see the checklist in section 7).**
@@ -45,6 +45,7 @@
 3. **Oracle Always Free is an emergency backup only**, used only if required.
 4. **Last-resort fallback:** the developer's own machine running k3s or kind behind a free tunnel (the URL changes on restart and it only works while the machine is on).
 5. **The cloud account is created last (Phase 5)** so the 90-day clock covers deployment, final checks and the live month.
+- Cloud account timing changed by D-039: created at the end of v1 (cycle 8).
 
 ## 4. Budget estimates (estimates only, check the pricing calculators)
 

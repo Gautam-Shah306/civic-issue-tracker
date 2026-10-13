@@ -1,0 +1,6 @@
+*
+!services/gateway
+!services/gateway/**
+services/gateway/node_modules
+services/gateway/dist
+services/gateway/coverage
