@@ -1,0 +1,91 @@
+name: Node Service CI
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        required: true
+        type: string
+        description: "Path of service under services/ (e.g. _template, auth)"
+
+permissions: {}
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      SERVICE_PATH: services/${{ inputs.service }}
+      SERVICE_NAME: ${{ inputs.service }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ${{ env.SERVICE_PATH }}/.node-version
+
+      - name: Validate npm version
+        run: |
+          NPM_VER=$(npm --version)
+          echo "npm version: $NPM_VER"
+          node -e '
+            const [maj, min] = process.argv[1].split(".").map(Number);
+            if (maj < 11 || (maj === 11 && min < 10)) {
+              console.error("npm >= 11.10 is required, found " + process.argv[1]);
+              process.exit(1);
+            }
+          ' "$NPM_VER"
+
+      - name: Install dependencies
+        run: |
+          cd "$SERVICE_PATH"
+          npm ci
+
+      - name: Lint and format check
+        run: |
+          cd "$SERVICE_PATH"
+          npm run lint
+          npm run format:check
+
+      - name: Typecheck
+        run: |
+          cd "$SERVICE_PATH"
+          npm run typecheck
+
+      - name: Test with coverage
+        run: |
+          cd "$SERVICE_PATH"
+          npm test -- --coverage
+
+      - name: Build container image
+        run: |
+          IMAGE_TAG="civic/${SERVICE_NAME}:ci"
+          docker build -t "$IMAGE_TAG" "$SERVICE_PATH"
+          CONTAINER_NAME="ci-test-${SERVICE_NAME}"
+          docker run -d --name "$CONTAINER_NAME" -p 3000:3000 "$IMAGE_TAG"
+          
+          echo "Polling /healthz..."
+          SUCCESS=0
+          for i in $(seq 1 30); do
+            if curl -fs http://127.0.0.1:3000/healthz > /dev/null 2>&1; then
+              echo "Healthcheck passed on attempt $i"
+              SUCCESS=1
+              break
+            fi
+            sleep 1
+          done
+
+          echo "Container logs:"
+          docker logs "$CONTAINER_NAME"
+
+          docker stop "$CONTAINER_NAME"
+          docker rm "$CONTAINER_NAME"
+
+          if [ "$SUCCESS" -ne 1 ]; then
+            echo "Healthcheck failed after 30 seconds"
+            exit 1
+          fi

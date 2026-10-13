@@ -37,7 +37,7 @@ Event schemas evolve according to strict backward and forward compatibility rule
 
 1. **Additive (Non-Breaking) Changes:**
    - Adding optional fields to an existing event payload does not increment the major version.
-   - Consumers MUST be designed to ignore unknown fields unless schema validation is specifically configured for strict payload matching in that consumer.
+   - Producers validate every event strictly against its schema before publishing. Consumers validate tolerantly: required fields and types must match, unknown properties are ignored (with Ajv, `removeAdditional: true` strips properties where `additionalProperties` is false).
    - Minor modifications stay within the existing version schema (`*.v1.schema.json`).
 2. **Breaking Changes:**
    - Removing fields, renaming fields, altering types, or adding mandatory fields is a breaking change.
@@ -57,7 +57,7 @@ Event schemas evolve according to strict backward and forward compatibility rule
   - Purpose: Decoupled pub/sub event exchange for all domain events across services.
 - **Routing Key:** The event routing key matches `eventType` verbatim (e.g., `user.created`, `report.submitted`, `report.status-changed`).
 - **Dead-Letter Exchange (DLX):** `civic.dlx`
-  - Type: `topic` (or `direct`)
+  - Type: `direct`
   - Durability: `durable: true`
   - Auto-delete: `false`
   - Purpose: Routes poison messages and exhausted delivery messages to dead-letter queues.
@@ -93,9 +93,9 @@ For each quorum queue, a corresponding dead-letter queue is declared:
 - `notification.report-status-changed.dlq` bound to `civic.dlx` with routing key `notification.report-status-changed.dlq`.
 
 ### Broker Behavior & Reliability Controls
-- **Publisher Confirms:** All publishers enable publisher confirms (`confirm_delivery: true` in `rabbitmq-client`). A message is considered published only once the broker acknowledges receipt.
-- **Consumer Prefetch:** Consumers configure channel prefetch count (`qos.prefetchCount = 10`) to balance throughput and prevent worker starvation.
-- **Manual Acknowledgments:** Consumers use manual acks (`noAck: false`). A message is positively acknowledged (`basic.ack`) ONLY after the database transaction executing the consumer effect commits.
+- **Publisher Confirms:** All publishers enable publisher confirms. A message is considered published only once the broker acknowledges receipt.
+- **Consumer Prefetch:** Consumers configure channel prefetch count (e.g., prefetch count of 10) to balance throughput and prevent worker starvation.
+- **Manual Acknowledgments:** Consumers use manual acks. A message is positively acknowledged (`basic.ack`) ONLY after the database transaction executing the consumer effect commits.
 - **Poison Message & Negative Ack Handling:**
   - When consumer processing fails due to transient faults, the message is negatively acknowledged (`basic.reject` / `basic.nack` with `requeue: true`).
   - Quorum queues track the delivery count (`x-delivery-count`). When redeliveries reach `x-delivery-limit: 5`, RabbitMQ automatically routes the message to `civic.dlx` without further delivery attempts.

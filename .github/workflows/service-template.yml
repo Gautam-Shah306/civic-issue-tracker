@@ -1,0 +1,24 @@
+name: Service Template CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/_template/**'
+      - '.github/workflows/node-service.yml'
+      - 'contracts/**'
+  pull_request:
+    paths:
+      - 'services/_template/**'
+      - '.github/workflows/node-service.yml'
+      - 'contracts/**'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  test-template:
+    uses: ./.github/workflows/node-service.yml
+    with:
+      service: _template

@@ -6,10 +6,10 @@
 ## Status
 
 - **Current phase:** Phase 1, Walking skeleton (in progress)
-- **Last verified step:** Phase 0 exit check passed; Phase 1 kickoff decisions recorded (D-036)
+- **Last verified step:** Slice 1b verified (contracts package, Node service template, reusable CI workflow; D-037)
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
 - **Cloud account:** not created (by design; created in Phase 5)
-- **Next action:** Slice 1b: Node service template and CI (`services/_template/`, reusable workflow, contract check), then slice 2: Auth
+- **Next action:** Slice 2: Auth service
 
 ## Phase checklist
 
@@ -26,8 +26,10 @@
 - [x] Dependabot: alerts and security updates enabled in repo settings; policy settled (D-032); `docker-compose` and `github-actions` entries committed
 - [x] Phase 0 exit check passed: Compose infrastructure healthy, CI green, secret scanning on (D-035)
 
-- [ ] Slice 1: event and error contracts, topology document, `db-init` (D-036)
-- [ ] Slice 1b: Node service template, reusable workflow, contract check in CI
+### Phase 1: Walking skeleton
+
+- [x] Slice 1: event and error contracts, topology document, `db-init` (D-036)
+- [x] Slice 1b: Node service template, reusable workflow, contract check in CI
 - [ ] Slice 2: Auth service (register, login, JWT, `UserCreated`)
 - [ ] Slice 3: Gateway (JWT verification, routing, correlation ID, rate limit)
 - [ ] Slice 4: Report service (submit, my reports, outbox, `ReportSubmitted`, status transitions table)
@@ -81,3 +83,4 @@
 | 2026-10-11 | GitHub Actions repository settings confirmed by the developer | Verified |
 | 2026-10-11 | Phase 0 exit check passed; Python-related deferred decisions moved to Phase 2 (D-035) | Verified |
 | 2026-10-12 | Phase 1 kickoff decisions recorded (D-036) | Verified |
+| 2026-10-12 | Slice 1b verified (contracts package, Node service template, reusable CI workflow; D-037) | Verified |

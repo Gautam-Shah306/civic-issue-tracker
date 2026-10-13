@@ -37,6 +37,52 @@ for wf in .github/workflows/*.yml .github/workflows/*.yaml; do
   fi
 done
 
+# (v) every package.json has only exact dependency and devDependency versions (no ^ ~ > < * latest or ranges; engines block exempt)
+# (vi) a package-lock.json sits next to every package.json
+# (vii) a .npmrc next to every package.json contains min-release-age=7 and ignore-scripts=true
+for pkg in $(git ls-files '**/package.json' 'package.json' 2>/dev/null); do
+  [ -e "$pkg" ] || continue
+  pkg_dir=$(dirname "$pkg")
+
+  # (v) Check exact versions in dependencies and devDependencies
+  awk '
+    BEGIN { in_dep = 0; err = 0 }
+    /^[[:space:]]*"(dependencies|devDependencies)"[[:space:]]*:[[:space:]]*\{/ { in_dep = 1; next }
+    in_dep && /^[[:space:]]*\}/ { in_dep = 0; next }
+    in_dep && /^[[:space:]]*"[^"]+"[[:space:]]*:[[:space:]]*"[^"]+"/ {
+      val = $0
+      sub(/^[[:space:]]*"[^"]+"[[:space:]]*:[[:space:]]*"/, "", val)
+      sub(/".*$/, "", val)
+      if (val ~ /[\^~><*|]|latest| - / || val !~ /^[0-9]+\.[0-9]+\.[0-9]+([+-].*)?$/) {
+        print FILENAME ":" NR ": Violation: non-exact version in " FILENAME " -> " $0
+        err = 1
+      }
+    }
+    END { exit err }
+  ' "$pkg" || ERRORS=1
+
+  # (vi) package-lock.json must sit next to package.json
+  if [ ! -f "$pkg_dir/package-lock.json" ]; then
+    echo "Violation: Missing package-lock.json in $pkg_dir"
+    ERRORS=1
+  fi
+
+  # (vii) .npmrc must sit next to package.json and contain min-release-age=7 and ignore-scripts=true
+  if [ ! -f "$pkg_dir/.npmrc" ]; then
+    echo "Violation: Missing .npmrc in $pkg_dir"
+    ERRORS=1
+  else
+    if ! grep -q "^min-release-age=7" "$pkg_dir/.npmrc"; then
+      echo "Violation: $pkg_dir/.npmrc missing min-release-age=7"
+      ERRORS=1
+    fi
+    if ! grep -q "^ignore-scripts=true" "$pkg_dir/.npmrc"; then
+      echo "Violation: $pkg_dir/.npmrc missing ignore-scripts=true"
+      ERRORS=1
+    fi
+  fi
+done
+
 if [ $ERRORS -ne 0 ]; then
   exit 1
 fi

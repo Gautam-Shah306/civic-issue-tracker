@@ -1,6 +1,6 @@
 # 08: CI/CD Pipeline
 
-> **Status:** Approved (no pull requests for a solo developer, see section 6 and D-030) · **Last updated:** 2026-10-11
+> **Status:** Approved (no pull requests for a solo developer, see section 6 and D-030) · **Last updated:** 2026-10-12
 > CI/CD is worth **3 of 20 marks**. GitHub Actions does all the automation. Security scanners appear as pipeline stages (see `09`).
 
 ---
@@ -23,7 +23,7 @@ GitHub-hosted runners on a public repository are free for standard usage, which 
 - Separate workflows: `infra-ci` (Terraform checks), `deploy`, `release`, and a weekly `scheduled-scan` (see `09`).
 - `concurrency` groups cancel superseded runs and prevent two deploys at once.
 - Docker layer caching keeps builds fast.
-- **Current state (D-034):** one workflow, `ci.yml`, with three jobs (secret scan, Compose validation, repo hygiene) and two check scripts in `.github/scripts/`. The per-service reusable workflows described above arrive with the services in Phase 1.
+- **Current state (D-034, D-037):** `ci.yml` runs secret scanning, Compose validation, repo hygiene, and a `contracts` validation job. The reusable workflow `node-service.yml` provides standard lint, test, coverage, and container build-and-probe verification, invoked by per-service wrappers starting with `service-template.yml`.
 
 ## 3. What each service's CI runs
 
