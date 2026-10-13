@@ -6,18 +6,18 @@
 ## Status
 
 - **Current phase:** Phase 1, Walking skeleton (in progress)
-- **Last verified step:** Slice 2: Auth service (register, login, refresh, logout, JWT, user.created) end to end in Compose (D-038)
+- **Last verified step:** Cycle 3: Notification + Analytics & Audit (email delivery via Mailpit, audit log, summary stats, Phase 1 exit test verified) (D-041)
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
 - **Cloud account:** not created (by design; created in Phase 5)
-- **Next action:** v1 cycle 3: Notification + Analytics & Audit
+- **Next action:** v1 cycle 4: Python base + Image + Routing
 
 ## v1 plan (D-039)
 
 Phase checklists below describe the full scope; D-039 supersedes them where they differ.
 
 - [x] Cycle 1: Auth (committed)
-- [ ] Cycle 2: Gateway + Report
-- [ ] Cycle 3: Notification + Analytics & Audit
+- [x] Cycle 2: Gateway + Report (D-040)
+- [x] Cycle 3: Notification + Analytics & Audit (D-041, Phase 1 exit test verified)
 - [ ] Cycle 4: Python base + Image + Routing
 - [ ] Cycle 5: Web Frontend + backend gaps
 - [ ] Cycle 6: Local Kubernetes
@@ -46,12 +46,12 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 - [x] Slice 1: event and error contracts, topology document, `db-init` (D-036)
 - [x] Slice 1b: Node service template, reusable workflow, contract check in CI
 - [x] Slice 2: Auth service (register, login, JWT, `UserCreated`)
-- [ ] Slice 3: Gateway (JWT verification, routing, correlation ID, rate limit)
-- [ ] Slice 4: Report service (submit, my reports, outbox, `ReportSubmitted`, status transitions table)
-- [ ] Slice 5: Notification service (idempotent consumer, email to Mailpit)
+- [x] Slice 3: Gateway (JWT verification, routing, correlation ID, rate limit)
+- [x] Slice 4: Report service (submit, my reports, outbox, `ReportSubmitted`, status transitions table)
+- [x] Slice 5: Notification service (idempotent consumer, email to Mailpit)
 - [ ] Slice 6: minimal frontend (register, login, submit, list)
 - [ ] Dependabot entries added with each first manifest (`npm` and `pip` per service)
-- [ ] Citizen registers, submits a report, email appears in Mailpit via a real event
+- [x] Citizen registers, submits a report, email appears in Mailpit via a real event
 
 ### Phase 2: Core features
 - [ ] Image, Routing and Assignment, status lifecycle, dashboards, public map and list, Analytics and Audit
@@ -100,4 +100,5 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 | 2026-10-12 | Phase 1 kickoff decisions recorded (D-036) | Verified |
 | 2026-10-12 | Slice 1b verified (contracts package, Node service template, reusable CI workflow; D-037) | Verified |
 | 2026-10-13 | Slice 2: Auth service (register, login, refresh, logout, JWT, user.created) end to end in Compose (D-038) | Verified |
-| 2026-10-13 | v1 plan recorded (D-039); Gateway + Report (D-040) | In progress |
+| 2026-10-13 | v1 cycle 2: Gateway + Report (D-040) | Verified |
+| 2026-10-13 | v1 cycle 3: Notification + Analytics & Audit (Phase 1 exit test verified) (D-041) | Verified |

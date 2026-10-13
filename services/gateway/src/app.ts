@@ -266,5 +266,12 @@ export async function buildApp(config: Config, deps: AppDependencies = {}) {
     proxyTo(config.REPORT_SERVICE_URL)
   );
 
+  // Analytics Service - Authenticated (JWT required; service enforces roles)
+  app.all(
+    '/api/v1/analytics/*',
+    { preHandler: [jwtVerifier.requireAuth] },
+    proxyTo(config.ANALYTICS_URL)
+  );
+
   return app;
 }

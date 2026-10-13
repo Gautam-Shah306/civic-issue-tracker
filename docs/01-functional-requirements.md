@@ -157,6 +157,5 @@ These were intentionally left open. Settle each in the phase shown and record it
 | Priority scoring formula | Phase 4 |
 | Duplicate detection radius and matching rules | Phase 4 |
 | Upvote rules (one per user, anonymous upvotes or not) | Phase 4 |
-| Notification content and templates | Phase 1 |
 | Photo limits (file size, count, accepted types) | Phase 2 |
 | Retention policy for closed reports | Optional, later |

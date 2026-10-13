@@ -6,6 +6,7 @@ const configSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   AUTH_SERVICE_URL: z.string().default('http://auth:3000'),
   REPORT_SERVICE_URL: z.string().default('http://report:3000'),
+  ANALYTICS_URL: z.string().default('http://analytics:3000'),
   REDIS_URL: z.string().default('redis://127.0.0.1:6379/0'),
   JWT_PUBLIC_KEY_B64: z.string().default(''),
   JWT_ISSUER: z.string().default('civic-auth'),

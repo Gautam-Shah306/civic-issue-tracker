@@ -1,0 +1,26 @@
+name: Notification Service CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/notification/**'
+      - '.github/workflows/node-service.yml'
+      - 'contracts/**'
+  pull_request:
+    paths:
+      - 'services/notification/**'
+      - '.github/workflows/node-service.yml'
+      - 'contracts/**'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  test-notification:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/node-service.yml
+    with:
+      service: notification

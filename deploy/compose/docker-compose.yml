@@ -123,6 +123,8 @@ services:
       AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:?Auth DB password is required}
       REPORT_DB_PASSWORD: ${REPORT_DB_PASSWORD:?Report DB password is required}
       NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?Notification DB password is required}
+      ANALYTICS_DB_PASSWORD: ${ANALYTICS_DB_PASSWORD:?Analytics DB password is required}
+      ANALYTICS_RW_DB_PASSWORD: ${ANALYTICS_RW_DB_PASSWORD:?Analytics RW DB password is required}
     volumes:
       - ./db-init:/db-init:ro
     entrypoint: ["sh", "/db-init/db-init.sh"]
@@ -256,6 +258,136 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  notification-migrate:
+    profiles:
+      - app
+    build:
+      context: ../..
+      dockerfile: services/notification/Dockerfile
+      args:
+        SERVICE: notification
+    command: ["dist/migrate.js"]
+    restart: "no"
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: civic_notification
+      DB_USER: civic_notification
+      DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?Notification DB password is required}
+    networks:
+      - civic
+    security_opt:
+      - no-new-privileges:true
+
+  notification:
+    profiles:
+      - app
+    build:
+      context: ../..
+      dockerfile: services/notification/Dockerfile
+      args:
+        SERVICE: notification
+    restart: unless-stopped
+    depends_on:
+      notification-migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: civic_notification
+      DB_USER: civic_notification
+      DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?Notification DB password is required}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:?RabbitMQ user is required}:${RABBITMQ_PASSWORD:?RabbitMQ password is required}@rabbitmq:5672
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_FROM: ${SMTP_FROM:?SMTP from address is required}
+      CONTRACTS_DIR: /app/contracts
+    healthcheck:
+      test: ["CMD", "/nodejs/bin/node", "dist/healthcheck.js"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks:
+      - civic
+    security_opt:
+      - no-new-privileges:true
+
+  analytics-migrate:
+    profiles:
+      - app
+    build:
+      context: ../..
+      dockerfile: services/analytics/Dockerfile
+      args:
+        SERVICE: analytics
+    command: ["dist/migrate.js"]
+    restart: "no"
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: civic_analytics
+      DB_USER: civic_analytics
+      DB_PASSWORD: ${ANALYTICS_DB_PASSWORD:?Analytics DB password is required}
+    networks:
+      - civic
+    security_opt:
+      - no-new-privileges:true
+
+  analytics:
+    profiles:
+      - app
+    build:
+      context: ../..
+      dockerfile: services/analytics/Dockerfile
+      args:
+        SERVICE: analytics
+    restart: unless-stopped
+    depends_on:
+      analytics-migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: civic_analytics
+      DB_USER: civic_analytics_rw
+      DB_PASSWORD: ${ANALYTICS_RW_DB_PASSWORD:?Analytics RW DB password is required}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:?RabbitMQ user is required}:${RABBITMQ_PASSWORD:?RabbitMQ password is required}@rabbitmq:5672
+      JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?JWT public key is required}
+      CONTRACTS_DIR: /app/contracts
+    healthcheck:
+      test: ["CMD", "/nodejs/bin/node", "dist/healthcheck.js"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks:
+      - civic
+    security_opt:
+      - no-new-privileges:true
+
   gateway:
     profiles:
       - app
@@ -270,6 +402,8 @@ services:
         condition: service_healthy
       report:
         condition: service_healthy
+      analytics:
+        condition: service_healthy
       redis:
         condition: service_healthy
     ports:
@@ -278,6 +412,7 @@ services:
       PORT: 3000
       AUTH_SERVICE_URL: http://auth:3000
       REPORT_SERVICE_URL: http://report:3000
+      ANALYTICS_URL: http://analytics:3000
       REDIS_URL: redis://:${REDIS_PASSWORD:?Redis password is required}@redis:6379/0
       JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?JWT public key is required}
       CORS_ORIGINS: "*"

@@ -1,0 +1,664 @@
+{
+  "components": {
+    "schemas": {},
+    "securitySchemes": {
+      "bearerAuth": {
+        "bearerFormat": "JWT",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "description": "Read-model summary metrics and immutable audit log for Civic Issue Tracker",
+    "title": "Civic Issue Tracker - Analytics & Audit Service API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/v1/analytics/audit": {
+      "get": {
+        "description": "Returns paginated and filtered immutable audit log records.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "def",
+            "schema": {
+              "shape": {
+                "eventType": {
+                  "def": {
+                    "innerType": {
+                      "def": {
+                        "type": "string"
+                      },
+                      "type": "string"
+                    },
+                    "type": "optional"
+                  },
+                  "type": "optional"
+                },
+                "from": {
+                  "def": {
+                    "innerType": {
+                      "def": {
+                        "checks": [
+                          {
+                            "def": {
+                              "check": "string_format",
+                              "format": "datetime",
+                              "local": false,
+                              "offset": false,
+                              "pattern": {},
+                              "precision": null,
+                              "type": "string"
+                            },
+                            "type": "string"
+                          }
+                        ],
+                        "type": "string"
+                      },
+                      "type": "string"
+                    },
+                    "type": "optional"
+                  },
+                  "type": "optional"
+                },
+                "page": {
+                  "def": {
+                    "defaultValue": 1,
+                    "innerType": {
+                      "def": {
+                        "checks": [
+                          {
+                            "def": {
+                              "abort": false,
+                              "check": "number_format",
+                              "format": "safeint",
+                              "type": "number"
+                            },
+                            "isFinite": true,
+                            "type": "number"
+                          },
+                          {}
+                        ],
+                        "coerce": true,
+                        "type": "number"
+                      },
+                      "isFinite": true,
+                      "type": "number"
+                    },
+                    "type": "default"
+                  },
+                  "type": "default"
+                },
+                "pageSize": {
+                  "def": {
+                    "defaultValue": 20,
+                    "innerType": {
+                      "def": {
+                        "checks": [
+                          {
+                            "def": {
+                              "abort": false,
+                              "check": "number_format",
+                              "format": "safeint",
+                              "type": "number"
+                            },
+                            "isFinite": true,
+                            "type": "number"
+                          },
+                          {},
+                          {}
+                        ],
+                        "coerce": true,
+                        "type": "number"
+                      },
+                      "isFinite": true,
+                      "type": "number"
+                    },
+                    "type": "default"
+                  },
+                  "type": "default"
+                },
+                "subjectId": {
+                  "def": {
+                    "innerType": {
+                      "def": {
+                        "type": "string"
+                      },
+                      "type": "string"
+                    },
+                    "type": "optional"
+                  },
+                  "type": "optional"
+                },
+                "to": {
+                  "def": {
+                    "innerType": {
+                      "def": {
+                        "checks": [
+                          {
+                            "def": {
+                              "check": "string_format",
+                              "format": "datetime",
+                              "local": false,
+                              "offset": false,
+                              "pattern": {},
+                              "precision": null,
+                              "type": "string"
+                            },
+                            "type": "string"
+                          }
+                        ],
+                        "type": "string"
+                      },
+                      "type": "string"
+                    },
+                    "type": "optional"
+                  },
+                  "type": "optional"
+                }
+              },
+              "type": "object"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "schema": "object"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "def": {
+                    "shape": {
+                      "items": {
+                        "def": {
+                          "element": {
+                            "def": {
+                              "shape": {
+                                "actor": {
+                                  "def": {
+                                    "innerType": {
+                                      "def": {
+                                        "type": "string"
+                                      },
+                                      "type": "string"
+                                    },
+                                    "type": "nullable"
+                                  },
+                                  "type": "nullable"
+                                },
+                                "correlationId": {
+                                  "def": {
+                                    "checks": [
+                                      {
+                                        "def": {
+                                          "abort": false,
+                                          "check": "string_format",
+                                          "format": "uuid",
+                                          "pattern": {},
+                                          "type": "string"
+                                        },
+                                        "type": "string"
+                                      }
+                                    ],
+                                    "type": "string"
+                                  },
+                                  "type": "string"
+                                },
+                                "eventId": {
+                                  "def": {
+                                    "checks": [
+                                      {
+                                        "def": {
+                                          "abort": false,
+                                          "check": "string_format",
+                                          "format": "uuid",
+                                          "pattern": {},
+                                          "type": "string"
+                                        },
+                                        "type": "string"
+                                      }
+                                    ],
+                                    "type": "string"
+                                  },
+                                  "type": "string"
+                                },
+                                "eventType": {
+                                  "def": {
+                                    "type": "string"
+                                  },
+                                  "type": "string"
+                                },
+                                "id": {
+                                  "def": {
+                                    "type": "string"
+                                  },
+                                  "type": "string"
+                                },
+                                "occurredAt": {
+                                  "def": {
+                                    "type": "string"
+                                  },
+                                  "type": "string"
+                                },
+                                "payload": {
+                                  "def": {
+                                    "keyType": {
+                                      "def": {
+                                        "type": "string"
+                                      },
+                                      "type": "string"
+                                    },
+                                    "type": "record",
+                                    "valueType": {
+                                      "def": {
+                                        "type": "unknown"
+                                      },
+                                      "type": "unknown"
+                                    }
+                                  },
+                                  "keyType": {
+                                    "def": {
+                                      "type": "string"
+                                    },
+                                    "type": "string"
+                                  },
+                                  "type": "record",
+                                  "valueType": {
+                                    "def": {
+                                      "type": "unknown"
+                                    },
+                                    "type": "unknown"
+                                  }
+                                },
+                                "receivedAt": {
+                                  "def": {
+                                    "type": "string"
+                                  },
+                                  "type": "string"
+                                },
+                                "subjectId": {
+                                  "def": {
+                                    "innerType": {
+                                      "def": {
+                                        "type": "string"
+                                      },
+                                      "type": "string"
+                                    },
+                                    "type": "nullable"
+                                  },
+                                  "type": "nullable"
+                                },
+                                "subjectType": {
+                                  "def": {
+                                    "innerType": {
+                                      "def": {
+                                        "type": "string"
+                                      },
+                                      "type": "string"
+                                    },
+                                    "type": "nullable"
+                                  },
+                                  "type": "nullable"
+                                },
+                                "version": {
+                                  "def": {
+                                    "checks": [],
+                                    "type": "number"
+                                  },
+                                  "isFinite": true,
+                                  "type": "number"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "element": {
+                          "def": {
+                            "shape": {
+                              "actor": {
+                                "def": {
+                                  "innerType": {
+                                    "def": {
+                                      "type": "string"
+                                    },
+                                    "type": "string"
+                                  },
+                                  "type": "nullable"
+                                },
+                                "type": "nullable"
+                              },
+                              "correlationId": {
+                                "def": {
+                                  "checks": [
+                                    {
+                                      "def": {
+                                        "abort": false,
+                                        "check": "string_format",
+                                        "format": "uuid",
+                                        "pattern": {},
+                                        "type": "string"
+                                      },
+                                      "type": "string"
+                                    }
+                                  ],
+                                  "type": "string"
+                                },
+                                "type": "string"
+                              },
+                              "eventId": {
+                                "def": {
+                                  "checks": [
+                                    {
+                                      "def": {
+                                        "abort": false,
+                                        "check": "string_format",
+                                        "format": "uuid",
+                                        "pattern": {},
+                                        "type": "string"
+                                      },
+                                      "type": "string"
+                                    }
+                                  ],
+                                  "type": "string"
+                                },
+                                "type": "string"
+                              },
+                              "eventType": {
+                                "def": {
+                                  "type": "string"
+                                },
+                                "type": "string"
+                              },
+                              "id": {
+                                "def": {
+                                  "type": "string"
+                                },
+                                "type": "string"
+                              },
+                              "occurredAt": {
+                                "def": {
+                                  "type": "string"
+                                },
+                                "type": "string"
+                              },
+                              "payload": {
+                                "def": {
+                                  "keyType": {
+                                    "def": {
+                                      "type": "string"
+                                    },
+                                    "type": "string"
+                                  },
+                                  "type": "record",
+                                  "valueType": {
+                                    "def": {
+                                      "type": "unknown"
+                                    },
+                                    "type": "unknown"
+                                  }
+                                },
+                                "keyType": {
+                                  "def": {
+                                    "type": "string"
+                                  },
+                                  "type": "string"
+                                },
+                                "type": "record",
+                                "valueType": {
+                                  "def": {
+                                    "type": "unknown"
+                                  },
+                                  "type": "unknown"
+                                }
+                              },
+                              "receivedAt": {
+                                "def": {
+                                  "type": "string"
+                                },
+                                "type": "string"
+                              },
+                              "subjectId": {
+                                "def": {
+                                  "innerType": {
+                                    "def": {
+                                      "type": "string"
+                                    },
+                                    "type": "string"
+                                  },
+                                  "type": "nullable"
+                                },
+                                "type": "nullable"
+                              },
+                              "subjectType": {
+                                "def": {
+                                  "innerType": {
+                                    "def": {
+                                      "type": "string"
+                                    },
+                                    "type": "string"
+                                  },
+                                  "type": "nullable"
+                                },
+                                "type": "nullable"
+                              },
+                              "version": {
+                                "def": {
+                                  "checks": [],
+                                  "type": "number"
+                                },
+                                "isFinite": true,
+                                "type": "number"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "page": {
+                        "def": {
+                          "checks": [],
+                          "type": "number"
+                        },
+                        "isFinite": true,
+                        "type": "number"
+                      },
+                      "pageSize": {
+                        "def": {
+                          "checks": [],
+                          "type": "number"
+                        },
+                        "isFinite": true,
+                        "type": "number"
+                      },
+                      "total": {
+                        "def": {
+                          "checks": [],
+                          "type": "number"
+                        },
+                        "isFinite": true,
+                        "type": "number"
+                      },
+                      "totalPages": {
+                        "def": {
+                          "checks": [],
+                          "type": "number"
+                        },
+                        "isFinite": true,
+                        "type": "number"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Default Response"
+          }
+        },
+        "summary": "Query audit log",
+        "tags": [
+          "Audit"
+        ]
+      }
+    },
+    "/api/v1/analytics/summary": {
+      "get": {
+        "description": "Returns aggregated report counts by status, category, open count, and average resolution time.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "def": {
+                    "shape": {
+                      "averageResolutionHours": {
+                        "def": {
+                          "checks": [],
+                          "type": "number"
+                        },
+                        "isFinite": true,
+                        "type": "number"
+                      },
+                      "byCategory": {
+                        "def": {
+                          "keyType": {
+                            "def": {
+                              "type": "string"
+                            },
+                            "type": "string"
+                          },
+                          "type": "record",
+                          "valueType": {
+                            "def": {
+                              "checks": [],
+                              "type": "number"
+                            },
+                            "isFinite": true,
+                            "type": "number"
+                          }
+                        },
+                        "keyType": {
+                          "def": {
+                            "type": "string"
+                          },
+                          "type": "string"
+                        },
+                        "type": "record",
+                        "valueType": {
+                          "def": {
+                            "checks": [],
+                            "type": "number"
+                          },
+                          "isFinite": true,
+                          "type": "number"
+                        }
+                      },
+                      "byStatus": {
+                        "def": {
+                          "keyType": {
+                            "def": {
+                              "type": "string"
+                            },
+                            "type": "string"
+                          },
+                          "type": "record",
+                          "valueType": {
+                            "def": {
+                              "checks": [],
+                              "type": "number"
+                            },
+                            "isFinite": true,
+                            "type": "number"
+                          }
+                        },
+                        "keyType": {
+                          "def": {
+                            "type": "string"
+                          },
+                          "type": "string"
+                        },
+                        "type": "record",
+                        "valueType": {
+                          "def": {
+                            "checks": [],
+                            "type": "number"
+                          },
+                          "isFinite": true,
+                          "type": "number"
+                        }
+                      },
+                      "openReports": {
+                        "def": {
+                          "checks": [],
+                          "type": "number"
+                        },
+                        "isFinite": true,
+                        "type": "number"
+                      },
+                      "totalReports": {
+                        "def": {
+                          "checks": [],
+                          "type": "number"
+                        },
+                        "isFinite": true,
+                        "type": "number"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Default Response"
+          }
+        },
+        "summary": "Get report summary metrics",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/healthz": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Local API Gateway",
+      "url": "http://localhost:8080"
+    }
+  ]
+}

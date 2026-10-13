@@ -22,7 +22,7 @@ docker compose -f deploy/compose/docker-compose.yml up -d --wait --wait-timeout 
 ```
 *Note: The first start pulls images and can take several minutes.*
 
-The stack includes a one-shot `db-init` provisioning service that runs automatically once Postgres is healthy. It idempotently provisions individual databases and roles (`civic_auth`, `civic_report`, `civic_notification`) with passwords from `.env`, restricts database connection access to only each service's own role, and installs required extensions (`postgis` in `civic_report`).
+The stack includes a one-shot `db-init` provisioning service that runs automatically once Postgres is healthy. It idempotently provisions individual databases and roles (`civic_auth`, `civic_report`, `civic_notification`, `civic_analytics`, `civic_analytics_rw`) with passwords from `.env`, restricts database connection access to only each service's own role, and installs required extensions (`postgis` in `civic_report`).
 
 To stop the infrastructure:
 ```powershell
@@ -30,11 +30,11 @@ docker compose -f deploy/compose/docker-compose.yml down
 ```
 
 ### Application Services (Profile `app`)
-To run the full application stack including microservices (Gateway, Auth, Report):
+To run the full application stack including microservices (Gateway, Auth, Report, Notification, Analytics):
 ```powershell
 docker compose -f deploy/compose/docker-compose.yml --profile app up -d --build --wait
 ```
-This runs `auth-migrate` and `report-migrate` to execute database migrations, starts internal services (`auth`, `report`), and starts `gateway` on port 8080.
+This runs database migrations (`auth-migrate`, `report-migrate`, `notification-migrate`, `analytics-migrate`), starts internal services (`auth`, `report`, `notification`, `analytics`), and starts `gateway` on port 8080.
 
 To stop the full application stack:
 ```powershell

@@ -14,8 +14,10 @@ describe('Gateway Service Integration Tests', () => {
   let redisClient: Redis;
   let authUpstream: FastifyInstance;
   let reportUpstream: FastifyInstance;
+  let analyticsUpstream: FastifyInstance;
   let authPort: number;
   let reportPort: number;
+  let analyticsPort: number;
   let gatewayPort: number;
   let gatewayApp: Awaited<ReturnType<typeof buildApp>>;
   let privateKeyPem: string;
@@ -104,10 +106,22 @@ describe('Gateway Service Integration Tests', () => {
     await reportUpstream.listen({ port: 0, host: '127.0.0.1' });
     reportPort = (reportUpstream.server.address() as any).port;
 
-    // 5. Start Gateway Application
+    // 5. Start Mock Analytics Upstream
+    analyticsUpstream = Fastify();
+    analyticsUpstream.get('/api/v1/analytics/summary', async (req, reply) => {
+      return reply.status(200).send({
+        totalReports: 10,
+        receivedHeaders: req.headers
+      });
+    });
+    await analyticsUpstream.listen({ port: 0, host: '127.0.0.1' });
+    analyticsPort = (analyticsUpstream.server.address() as any).port;
+
+    // 6. Start Gateway Application
     const config = loadConfig({
       AUTH_SERVICE_URL: `http://127.0.0.1:${authPort}`,
       REPORT_SERVICE_URL: `http://127.0.0.1:${reportPort}`,
+      ANALYTICS_URL: `http://127.0.0.1:${analyticsPort}`,
       REDIS_URL: redisUrl,
       JWT_PUBLIC_KEY_B64: publicKeyB64,
       JWT_ISSUER: 'civic-auth',
@@ -126,6 +140,7 @@ describe('Gateway Service Integration Tests', () => {
     if (gatewayApp) await gatewayApp.close();
     if (authUpstream) await authUpstream.close();
     if (reportUpstream) await reportUpstream.close();
+    if (analyticsUpstream) await analyticsUpstream.close();
     if (redisClient) redisClient.disconnect();
     if (redisContainer) await redisContainer.stop();
   });
@@ -268,6 +283,28 @@ describe('Gateway Service Integration Tests', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.items[0].id).toBe('rpt-officer-1');
+    });
+
+    it('requires JWT on /api/v1/analytics/summary (returns 401)', async () => {
+      const res = await request(gatewayApp.server).get('/api/v1/analytics/summary');
+      expect(res.status).toBe(401);
+      expect(res.headers['content-type']).toContain('application/problem+json');
+    });
+
+    it('proxies to analytics upstream when valid JWT provided', async () => {
+      const token = await createToken({
+        sub: 'admin-1',
+        role: 'admin',
+        email: 'admin@example.com'
+      });
+      const res = await request(gatewayApp.server)
+        .get('/api/v1/analytics/summary')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.totalReports).toBe(10);
+      expect(res.body.receivedHeaders['x-user-id']).toBe('admin-1');
+      expect(res.body.receivedHeaders['x-user-role']).toBe('admin');
     });
   });
 

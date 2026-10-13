@@ -93,6 +93,44 @@ If Image or Notification is down, events wait in the queue and are processed on 
 
 Rejected is terminal. Rejection needs a reason code (duplicate, invalid, out_of_jurisdiction) and an optional note (STS-07). `system` transitions are made by event consumers (cycle 4) and are not callable through the API. Every transition writes a history row and publishes `report.status-changed`.
 
+## 6. Notification emails (D-041)
+
+### 1. Welcome
+- **Trigger:** `user.created` event published by Auth service.
+- **Recipient:** Newly registered citizen (from event payload).
+- **Subject pattern:** `Welcome to Civic Issue Tracker`
+- **Body outline:**
+  - Welcome greeting with user's display name.
+  - Confirmation that account is active and ready to track civic issues.
+  - Instructions on logging in and submitting community reports.
+
+### 2. Report Received
+- **Trigger:** `report.submitted` event published by Report service.
+- **Recipient:** Report author (resolved via report_index and recipients).
+- **Subject pattern:** `We received your report: <title>`
+- **Body outline:**
+  - Acknowledgment of submission with report title and report ID.
+  - Notice that city officers will review and verify the submission.
+  - Assurance of tracking and email notifications on status changes.
+
+### 3. Status Changed
+- **Trigger:** `report.status-changed` event published by Report service.
+- **Recipient:** Report author (resolved via report_index and recipients).
+- **Subject pattern:** `Your report is now <status>: <title>`
+- **Body outline:**
+  - Notification of status change to `<status>` for the report title.
+  - Context including transition notes or status implications.
+  - Appreciation for active community participation.
+
+### 4. Officer Assignment (NTF-02, cycle 4)
+- **Trigger:** `report.assigned` event published by Routing service in cycle 4.
+- **Recipient:** Assigned department officer.
+- **Subject pattern:** `New report assignment: <title>`
+- **Body outline:**
+  - Assignment alert with report title and assignment reference.
+  - Priority, category, and municipal department routing details.
+  - Directive to review the report and commence resolution.
+
 ---
 
 ## Deferred decisions

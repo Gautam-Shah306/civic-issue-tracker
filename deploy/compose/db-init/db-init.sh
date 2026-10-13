@@ -73,5 +73,21 @@ SQL
 provision_service "auth" "${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD is required}" "false"
 provision_service "report" "${REPORT_DB_PASSWORD:?REPORT_DB_PASSWORD is required}" "true"
 provision_service "notification" "${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}" "false"
+provision_service "analytics" "${ANALYTICS_DB_PASSWORD:?ANALYTICS_DB_PASSWORD is required}" "false"
+
+echo "Provisioning civic_analytics_rw role..."
+run_admin_sql -v rname="civic_analytics_rw" -v rpass="${ANALYTICS_RW_DB_PASSWORD:?ANALYTICS_RW_DB_PASSWORD is required}" <<'SQL'
+SELECT format('CREATE ROLE %I WITH LOGIN PASSWORD %L', :'rname', :'rpass')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'rname')
+\gexec
+
+SELECT format('ALTER ROLE %I WITH LOGIN PASSWORD %L', :'rname', :'rpass')
+\gexec
+SQL
+
+run_admin_sql -v dbname="civic_analytics" -v rname="civic_analytics_rw" <<'SQL'
+SELECT format('GRANT CONNECT ON DATABASE %I TO %I', :'dbname', :'rname')
+\gexec
+SQL
 
 echo "Database provisioning completed successfully."

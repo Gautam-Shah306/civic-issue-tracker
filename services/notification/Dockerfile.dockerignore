@@ -1,0 +1,7 @@
+*
+!services/notification
+!services/notification/**
+!contracts/events/*.schema.json
+services/notification/node_modules
+services/notification/dist
+services/notification/coverage
