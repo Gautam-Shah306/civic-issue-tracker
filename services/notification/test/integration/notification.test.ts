@@ -101,6 +101,12 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
       await c.stop().catch(() => {});
     }
     activeConsumers.length = 0;
+    if (pool) {
+      await pool.query('DELETE FROM notifications;').catch(() => {});
+      await pool.query('DELETE FROM report_index;').catch(() => {});
+      await pool.query('DELETE FROM recipients;').catch(() => {});
+      await pool.query('DELETE FROM processed_events;').catch(() => {});
+    }
   });
 
   afterAll(async () => {
@@ -210,9 +216,9 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
     );
 
     // Wait for consumer processing
-    let notifRow: { kind: string; status: string; subject: string } | null = null;
+    let notifRow: { kind: string; status: string } | null = null;
     for (let i = 0; i < 30; i++) {
-      const res = await pool.query<{ kind: string; status: string; subject: string }>(
+      const res = await pool.query<{ kind: string; status: string }>(
         'SELECT * FROM notifications WHERE event_id = $1',
         [eventId]
       );
@@ -224,9 +230,8 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
     }
 
     expect(notifRow).not.toBeNull();
-    expect(notifRow.kind).toBe('welcome');
-    expect(notifRow.status).toBe('pending');
-    expect(notifRow.subject).toBe('Welcome to Civic Issue Tracker');
+    expect(notifRow!.kind).toBe('welcome');
+    expect(notifRow!.status).toBe('pending');
 
     // Verify recipient was recorded in read model
     const recRes = await pool.query('SELECT * FROM recipients WHERE user_id = $1', [userId]);
@@ -253,8 +258,8 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
     await consumers.stop();
   });
 
-  it('consumes report.submitted and creates report_received notification using recipient cache', async () => {
-    const logger = createLogger({ serviceName: 'test-notification', level: 'silent' });
+  it('report.submitted consumed BEFORE user.created still ends in ONE email once the user event arrives', async () => {
+    const logger = createLogger({ serviceName: 'test-ordering-1', level: 'silent' });
     const validator = createEventValidator(config);
     const consumers = createNotificationConsumers({
       config,
@@ -266,19 +271,21 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
     await consumers.start();
     activeConsumers.push(consumers);
 
-    // Seed recipient
-    const reporterId = crypto.randomUUID();
-    await pool.query(
-      `INSERT INTO recipients (user_id, email, display_name, role)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT DO NOTHING;`,
-      [reporterId, 'reporter@example.com', 'Jane Reporter', 'citizen']
-    );
+    const mailer = createMailer(config);
+    const senderLoop = createSenderLoop({
+      config,
+      pool,
+      mailer,
+      logger
+    });
 
+    const reporterId = crypto.randomUUID();
     const reportId = crypto.randomUUID();
-    const eventId = crypto.randomUUID();
+    const submittedEventId = crypto.randomUUID();
+
+    // 1. Report is submitted BEFORE user is created
     const reportSubmittedEvent = {
-      eventId,
+      eventId: submittedEventId,
       eventType: 'report.submitted',
       version: 1,
       occurredAt: new Date().toISOString(),
@@ -286,53 +293,94 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
       payload: {
         reportId,
         reporterId,
-        title: 'Broken water main',
-        description: 'Water spraying into street',
-        category: 'water-leak',
-        location: { lat: 23.0225, lng: 72.5714 },
+        title: 'Ordering Test Streetlight',
+        description: 'Dark corner',
+        category: 'streetlight',
+        location: { lat: 23.0, lng: 72.0 },
         submittedAt: new Date().toISOString()
       }
     };
 
     const pub = rabbitClient.createPublisher({ confirms: true });
     await pub.send(
-      {
-        exchange: 'civic.events',
-        routingKey: 'report.submitted'
-      },
+      { exchange: 'civic.events', routingKey: 'report.submitted' },
       reportSubmittedEvent
     );
 
-    let notifRow: { kind: string; subject: string; recipient_email: string } | null = null;
+    // Wait for consumer to process report.submitted
+    let notifRow: { status: string; kind: string } | null = null;
     for (let i = 0; i < 30; i++) {
-      const res = await pool.query<{ kind: string; subject: string; recipient_email: string }>(
-        'SELECT * FROM notifications WHERE event_id = $1',
-        [eventId]
-      );
+      const res = await pool.query('SELECT * FROM notifications WHERE event_id = $1', [
+        submittedEventId
+      ]);
       if (res.rows.length > 0) {
         notifRow = res.rows[0];
         break;
       }
       await new Promise((r) => setTimeout(r, 200));
     }
-
     expect(notifRow).not.toBeNull();
-    expect(notifRow.kind).toBe('report_received');
-    expect(notifRow.subject).toBe('We received your report: Broken water main');
-    expect(notifRow.recipient_email).toBe('reporter@example.com');
+    expect(notifRow.status).toBe('pending');
 
-    // Check report_index read model
-    const indexRes = await pool.query('SELECT * FROM report_index WHERE report_id = $1', [
-      reportId
-    ]);
-    expect(indexRes.rows.length).toBe(1);
-    expect(indexRes.rows[0].title).toBe('Broken water main');
+    // Run sender: recipient is not in recipients table yet, so row stays pending with 'waiting for recipient data'
+    const sentBeforeUser = await senderLoop.processBatch();
+    expect(sentBeforeUser).toBe(0);
+
+    const waitingRes = await pool.query(
+      'SELECT status, last_error FROM notifications WHERE event_id = $1',
+      [submittedEventId]
+    );
+    expect(waitingRes.rows[0].status).toBe('pending');
+    expect(waitingRes.rows[0].last_error).toBe('waiting for recipient data');
+
+    // 2. Now user.created event arrives!
+    const userCreatedEventId = crypto.randomUUID();
+    const userEmail = `ordering-${reporterId.slice(0, 6)}@test.local`;
+    const userCreatedEvent = {
+      eventId: userCreatedEventId,
+      eventType: 'user.created',
+      version: 1,
+      occurredAt: new Date().toISOString(),
+      correlationId: crypto.randomUUID(),
+      payload: {
+        userId: reporterId,
+        email: userEmail,
+        displayName: 'Late Citizen',
+        role: 'citizen',
+        createdAt: new Date().toISOString()
+      }
+    };
+
+    await pub.send({ exchange: 'civic.events', routingKey: 'user.created' }, userCreatedEvent);
+
+    // Wait for user.created to be consumed
+    for (let i = 0; i < 30; i++) {
+      const res = await pool.query('SELECT * FROM recipients WHERE user_id = $1', [reporterId]);
+      if (res.rows.length > 0) break;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+
+    // Reset next_attempt_at to now for the pending report notification so sender picks it up immediately
+    await pool.query(
+      'UPDATE notifications SET next_attempt_at = clock_timestamp() WHERE event_id = $1',
+      [submittedEventId]
+    );
+
+    // Run sender batch: both welcome and report_received should now be delivered!
+    const sentAfterUser = await senderLoop.processBatch();
+    expect(sentAfterUser).toBe(2);
+
+    const sentRows = await pool.query(
+      'SELECT kind, status FROM notifications WHERE event_id IN ($1, $2)',
+      [submittedEventId, userCreatedEventId]
+    );
+    expect(sentRows.rows.every((r) => r.status === 'sent')).toBe(true);
 
     await consumers.stop();
   });
 
-  it('consumes report.status-changed and creates status_changed notification', async () => {
-    const logger = createLogger({ serviceName: 'test-notification', level: 'silent' });
+  it('report.status-changed consumed BEFORE report.submitted still ends in ONE email once submitted arrives', async () => {
+    const logger = createLogger({ serviceName: 'test-ordering-2', level: 'silent' });
     const validator = createEventValidator(config);
     const consumers = createNotificationConsumers({
       config,
@@ -344,24 +392,28 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
     await consumers.start();
     activeConsumers.push(consumers);
 
+    const mailer = createMailer(config);
+    const senderLoop = createSenderLoop({
+      config,
+      pool,
+      mailer,
+      logger
+    });
+
     const reporterId = crypto.randomUUID();
     const reportId = crypto.randomUUID();
+    const userEmail = `status-before-sub-${reporterId.slice(0, 6)}@test.local`;
 
+    // Seed recipient so user is known
     await pool.query(
-      `INSERT INTO recipients (user_id, email, display_name, role)
-       VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;`,
-      [reporterId, 'citizen_status@example.com', 'Alex Citizen', 'citizen']
+      `INSERT INTO recipients (user_id, email, display_name, role) VALUES ($1, $2, $3, $4);`,
+      [reporterId, userEmail, 'Early Citizen', 'citizen']
     );
 
-    await pool.query(
-      `INSERT INTO report_index (report_id, reporter_id, title)
-       VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;`,
-      [reportId, reporterId, 'Streetlight dark']
-    );
-
-    const eventId = crypto.randomUUID();
+    // Publish status-changed event before report.submitted
+    const statusChangedEventId = crypto.randomUUID();
     const statusChangedEvent = {
-      eventId,
+      eventId: statusChangedEventId,
       eventType: 'report.status-changed',
       version: 1,
       occurredAt: new Date().toISOString(),
@@ -377,96 +429,73 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
 
     const pub = rabbitClient.createPublisher({ confirms: true });
     await pub.send(
-      {
-        exchange: 'civic.events',
-        routingKey: 'report.status-changed'
-      },
+      { exchange: 'civic.events', routingKey: 'report.status-changed' },
       statusChangedEvent
     );
 
-    let notifRow: { kind: string; subject: string; recipient_email: string } | null = null;
     for (let i = 0; i < 30; i++) {
-      const res = await pool.query<{ kind: string; subject: string; recipient_email: string }>(
-        'SELECT * FROM notifications WHERE event_id = $1',
-        [eventId]
-      );
-      if (res.rows.length > 0) {
-        notifRow = res.rows[0];
-        break;
-      }
+      const res = await pool.query('SELECT * FROM notifications WHERE event_id = $1', [
+        statusChangedEventId
+      ]);
+      if (res.rows.length > 0) break;
       await new Promise((r) => setTimeout(r, 200));
     }
 
-    expect(notifRow).not.toBeNull();
-    expect(notifRow.kind).toBe('status_changed');
-    expect(notifRow.subject).toBe('Your report is now Verified: Streetlight dark');
-    expect(notifRow.recipient_email).toBe('citizen_status@example.com');
+    // Sender cannot find report in report_index yet -> stays pending
+    const sentBeforeSub = await senderLoop.processBatch();
+    expect(sentBeforeSub).toBe(0);
 
-    await consumers.stop();
-  });
+    const notifBefore = await pool.query(
+      'SELECT status, last_error FROM notifications WHERE event_id = $1',
+      [statusChangedEventId]
+    );
+    expect(notifBefore.rows[0].status).toBe('pending');
+    expect(notifBefore.rows[0].last_error).toBe('waiting for recipient data');
 
-  it('unknown recipient does not block consumption and logs warning', async () => {
-    const logger = createLogger({ serviceName: 'test-notification', level: 'silent' });
-    const validator = createEventValidator(config);
-    const consumers = createNotificationConsumers({
-      config,
-      pool,
-      rabbitClient,
-      validator,
-      logger
-    });
-    await consumers.start();
-    activeConsumers.push(consumers);
-
-    const eventId = crypto.randomUUID();
-    const unknownReporterId = crypto.randomUUID();
-    const reportId = crypto.randomUUID();
-
+    // Now publish report.submitted
+    const reportSubmittedEventId = crypto.randomUUID();
     const reportSubmittedEvent = {
-      eventId,
+      eventId: reportSubmittedEventId,
       eventType: 'report.submitted',
       version: 1,
       occurredAt: new Date().toISOString(),
       correlationId: crypto.randomUUID(),
       payload: {
         reportId,
-        reporterId: unknownReporterId,
-        title: 'Report with unknown reporter',
+        reporterId,
+        title: 'Water Leak Main',
         description: 'Details',
-        category: 'sanitation',
+        category: 'water-leak',
         location: { lat: 23.0, lng: 72.0 },
         submittedAt: new Date().toISOString()
       }
     };
-
-    const pub = rabbitClient.createPublisher({ confirms: true });
     await pub.send(
-      {
-        exchange: 'civic.events',
-        routingKey: 'report.submitted'
-      },
+      { exchange: 'civic.events', routingKey: 'report.submitted' },
       reportSubmittedEvent
     );
 
-    // Wait for processed_events entry
-    let processed = false;
     for (let i = 0; i < 30; i++) {
-      const res = await pool.query('SELECT * FROM processed_events WHERE event_id = $1', [eventId]);
-      if (res.rows.length > 0) {
-        processed = true;
-        break;
-      }
+      const res = await pool.query('SELECT * FROM report_index WHERE report_id = $1', [reportId]);
+      if (res.rows.length > 0) break;
       await new Promise((r) => setTimeout(r, 200));
     }
 
-    expect(processed).toBe(true);
+    await pool.query(
+      'UPDATE notifications SET next_attempt_at = clock_timestamp() WHERE event_id = $1',
+      [statusChangedEventId]
+    );
 
-    // Verify no notification was created
-    const notifRes = await pool.query('SELECT * FROM notifications WHERE event_id = $1', [eventId]);
-    expect(notifRes.rows.length).toBe(0);
+    // Now sender can deliver both
+    const sentAfterSub = await senderLoop.processBatch();
+    expect(sentAfterSub).toBe(2);
 
-    const metrics = consumers.getMetrics();
-    expect(metrics.unknownRecipientCount).toBeGreaterThanOrEqual(1);
+    const okStatusNotif = await pool.query(
+      'SELECT status, subject FROM notifications WHERE event_id = $1',
+      [statusChangedEventId]
+    );
+    expect(okStatusNotif.rows[0].status).toBe('sent');
+    expect(okStatusNotif.rows[0].subject).toContain('Verified: Water Leak Main');
 
     await consumers.stop();
   });
@@ -482,13 +511,19 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
     });
 
     const notifId = crypto.randomUUID();
+    const userId = crypto.randomUUID();
     const targetEmail = `verified-${notifId.slice(0, 6)}@testmail.local`;
-    const targetSubject = 'We received your report: Pothole repaired';
+    const targetSubject = 'Welcome to Civic Issue Tracker';
 
     await pool.query(
-      `INSERT INTO notifications (id, event_id, kind, recipient_email, subject, body, status, created_at, next_attempt_at)
-       VALUES ($1, $2, 'report_received', $3, $4, 'Body text', 'pending', clock_timestamp(), clock_timestamp());`,
-      [notifId, crypto.randomUUID(), targetEmail, targetSubject]
+      `INSERT INTO recipients (user_id, email, display_name, role) VALUES ($1, $2, $3, $4);`,
+      [userId, targetEmail, 'Verified User', 'citizen']
+    );
+
+    await pool.query(
+      `INSERT INTO notifications (id, event_id, kind, recipient_user_id, status, created_at, next_attempt_at)
+       VALUES ($1, $2, 'welcome', $3, 'pending', clock_timestamp(), clock_timestamp());`,
+      [notifId, crypto.randomUUID(), userId]
     );
 
     // Process batch synchronously
@@ -497,12 +532,13 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
 
     // Check DB status
     const dbRes = await pool.query(
-      'SELECT status, sent_at, attempts FROM notifications WHERE id = $1',
+      'SELECT status, sent_at, attempts, recipient_email FROM notifications WHERE id = $1',
       [notifId]
     );
     expect(dbRes.rows[0].status).toBe('sent');
     expect(dbRes.rows[0].sent_at).not.toBeNull();
     expect(dbRes.rows[0].attempts).toBe(1);
+    expect(dbRes.rows[0].recipient_email).toBe(targetEmail);
 
     // Verify via Mailpit HTTP API
     const resp = await fetch(`${mailpitHttpUrl}/api/v1/messages`);
@@ -519,7 +555,6 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
   it('SMTP down -> increments attempts with back-off, then delivers when SMTP returns', async () => {
     const logger = createLogger({ serviceName: 'test-resilience', level: 'silent' });
 
-    // Create mailer pointing to invalid port (simulating SMTP down)
     const brokenConfig = { ...config, SMTP_PORT: 9999 };
     const brokenMailer = createMailer(brokenConfig);
     const brokenSenderLoop = createSenderLoop({
@@ -530,10 +565,16 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
     });
 
     const notifId = crypto.randomUUID();
+    const userId = crypto.randomUUID();
     await pool.query(
-      `INSERT INTO notifications (id, event_id, kind, recipient_email, subject, body, status, created_at, next_attempt_at)
-       VALUES ($1, $2, 'welcome', 'retry@test.local', 'Welcome Retry Test', 'Body', 'pending', clock_timestamp(), clock_timestamp());`,
-      [notifId, crypto.randomUUID()]
+      `INSERT INTO recipients (user_id, email, display_name, role) VALUES ($1, $2, $3, $4);`,
+      [userId, 'retry@test.local', 'Retry User', 'citizen']
+    );
+
+    await pool.query(
+      `INSERT INTO notifications (id, event_id, kind, recipient_user_id, status, created_at, next_attempt_at)
+       VALUES ($1, $2, 'welcome', $3, 'pending', clock_timestamp(), clock_timestamp());`,
+      [notifId, crypto.randomUUID(), userId]
     );
 
     // Attempt delivery while SMTP is down
@@ -571,9 +612,14 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
     expect(okRes.rows[0].attempts).toBe(2);
   });
 
-  it('five failures transitions status to failed', async () => {
-    const logger = createLogger({ serviceName: 'test-max-failures', level: 'silent' });
-    const brokenConfig = { ...config, SMTP_PORT: 9999 };
+  it('computes attempts and capped exponential back-off correctly', async () => {
+    const logger = createLogger({ serviceName: 'test-backoff', level: 'silent' });
+    const brokenConfig = {
+      ...config,
+      SMTP_PORT: 9999,
+      SENDER_MAX_ATTEMPTS: 4,
+      SENDER_BACKOFF_CAP_SECONDS: 8
+    };
     const brokenMailer = createMailer(brokenConfig);
     const brokenSenderLoop = createSenderLoop({
       config: brokenConfig,
@@ -583,22 +629,160 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
     });
 
     const notifId = crypto.randomUUID();
-    // Insert with attempts = 4
+    const userId = crypto.randomUUID();
     await pool.query(
-      `INSERT INTO notifications (id, event_id, kind, recipient_email, subject, body, status, attempts, created_at, next_attempt_at)
-       VALUES ($1, $2, 'welcome', 'fail@test.local', 'Max Failures Test', 'Body', 'pending', 4, clock_timestamp(), clock_timestamp());`,
-      [notifId, crypto.randomUUID()]
+      `INSERT INTO recipients (user_id, email, display_name, role) VALUES ($1, $2, $3, $4);`,
+      [userId, 'cap@test.local', 'Cap User', 'citizen']
     );
 
-    await brokenSenderLoop.processBatch();
+    await pool.query(
+      `INSERT INTO notifications (id, event_id, kind, recipient_user_id, status, attempts, created_at, next_attempt_at)
+       VALUES ($1, $2, 'welcome', $3, 'pending', 0, clock_timestamp(), clock_timestamp());`,
+      [notifId, crypto.randomUUID(), userId]
+    );
 
-    const dbRes = await pool.query(
-      'SELECT status, attempts, last_error FROM notifications WHERE id = $1',
+    // Attempt 1: fail -> attempts=1, delay = min(2^1, 8) = 2s
+    await brokenSenderLoop.processBatch();
+    let res = await pool.query(
+      'SELECT attempts, status, next_attempt_at FROM notifications WHERE id = $1',
       [notifId]
     );
-    expect(dbRes.rows[0].status).toBe('failed');
-    expect(dbRes.rows[0].attempts).toBe(5);
-    expect(dbRes.rows[0].last_error).not.toBeNull();
+    expect(res.rows[0].attempts).toBe(1);
+    expect(res.rows[0].status).toBe('pending');
+
+    // Attempt 2:
+    await pool.query('UPDATE notifications SET next_attempt_at = clock_timestamp() WHERE id = $1', [
+      notifId
+    ]);
+    await brokenSenderLoop.processBatch();
+    res = await pool.query('SELECT attempts, status FROM notifications WHERE id = $1', [notifId]);
+    expect(res.rows[0].attempts).toBe(2);
+
+    // Attempt 3:
+    await pool.query('UPDATE notifications SET next_attempt_at = clock_timestamp() WHERE id = $1', [
+      notifId
+    ]);
+    await brokenSenderLoop.processBatch();
+    res = await pool.query('SELECT attempts, status FROM notifications WHERE id = $1', [notifId]);
+    expect(res.rows[0].attempts).toBe(3);
+
+    // Attempt 4: reaches MAX_ATTEMPTS (4) -> failed!
+    await pool.query('UPDATE notifications SET next_attempt_at = clock_timestamp() WHERE id = $1', [
+      notifId
+    ]);
+    await brokenSenderLoop.processBatch();
+    res = await pool.query('SELECT attempts, status FROM notifications WHERE id = $1', [notifId]);
+    expect(res.rows[0].attempts).toBe(4);
+    expect(res.rows[0].status).toBe('failed');
+  });
+
+  it('no database transaction is open during the SMTP call', async () => {
+    const logger = createLogger({ serviceName: 'test-no-tx', level: 'silent' });
+    const notifId = crypto.randomUUID();
+    const userId = crypto.randomUUID();
+
+    await pool.query(
+      `INSERT INTO recipients (user_id, email, display_name, role) VALUES ($1, $2, $3, $4);`,
+      [userId, 'notx@test.local', 'NoTx User', 'citizen']
+    );
+
+    await pool.query(
+      `INSERT INTO notifications (id, event_id, kind, recipient_user_id, status, attempts, created_at, next_attempt_at)
+       VALUES ($1, $2, 'welcome', $3, 'pending', 0, clock_timestamp(), clock_timestamp());`,
+      [notifId, crypto.randomUUID(), userId]
+    );
+
+    let activeTxCountDuringSmtp = -1;
+
+    const slowMailer = {
+      sendMail: async () => {
+        // Query pg_stat_activity to assert no open transactions during SMTP call
+        const statRes = await pool.query<{ count: string }>(
+          `SELECT COUNT(*)::text AS count
+           FROM pg_stat_activity
+           WHERE datname = 'civic_notification_test'
+             AND pid != pg_backend_pid()
+             AND state = 'idle in transaction';`
+        );
+        activeTxCountDuringSmtp = parseInt(statRes.rows[0].count, 10);
+        return { messageId: 'test-msg-id' };
+      }
+    } as unknown as Transporter;
+
+    const testLoop = createSenderLoop({
+      config,
+      pool,
+      mailer: slowMailer,
+      logger
+    });
+
+    await testLoop.processBatch();
+
+    expect(activeTxCountDuringSmtp).toBe(0);
+
+    const okRes = await pool.query('SELECT status FROM notifications WHERE id = $1', [notifId]);
+    expect(okRes.rows[0].status).toBe('sent');
+  });
+
+  it('the 60 s lease prevents a second sender from double-sending', async () => {
+    const logger = createLogger({ serviceName: 'test-lease', level: 'silent' });
+    const notifId = crypto.randomUUID();
+    const userId = crypto.randomUUID();
+
+    await pool.query(
+      `INSERT INTO recipients (user_id, email, display_name, role) VALUES ($1, $2, $3, $4);`,
+      [userId, 'lease@test.local', 'Lease User', 'citizen']
+    );
+
+    await pool.query(
+      `INSERT INTO notifications (id, event_id, kind, recipient_user_id, status, attempts, created_at, next_attempt_at)
+       VALUES ($1, $2, 'welcome', $3, 'pending', 0, clock_timestamp(), clock_timestamp());`,
+      [notifId, crypto.randomUUID(), userId]
+    );
+
+    let sender1ProcessedCount = 0;
+    let sender2ProcessedCount = 0;
+
+    let unblockSender1: () => void;
+    const sender1Pause = new Promise<void>((resolve) => {
+      unblockSender1 = resolve;
+    });
+
+    const pausedMailer = {
+      sendMail: async () => {
+        await sender1Pause;
+        return { messageId: 's1' };
+      }
+    } as unknown as Transporter;
+
+    const workingMailer = createMailer(config);
+
+    const sender1 = createSenderLoop({ config, pool, mailer: pausedMailer, logger });
+    const sender2 = createSenderLoop({ config, pool, mailer: workingMailer, logger });
+
+    // Start Sender 1 batch (claims lease for 60s, then pauses inside sendMail)
+    const p1 = sender1.processBatch().then((cnt) => {
+      sender1ProcessedCount = cnt;
+    });
+
+    // Wait briefly so Sender 1 claims lease
+    await new Promise((r) => setTimeout(r, 200));
+
+    // Sender 2 should see 0 available rows because Sender 1 holds the lease
+    sender2ProcessedCount = await sender2.processBatch();
+    expect(sender2ProcessedCount).toBe(0);
+
+    // Unblock Sender 1
+    unblockSender1!();
+    await p1;
+
+    expect(sender1ProcessedCount).toBe(1);
+
+    const notifRes = await pool.query('SELECT status, attempts FROM notifications WHERE id = $1', [
+      notifId
+    ]);
+    expect(notifRes.rows[0].status).toBe('sent');
+    expect(notifRes.rows[0].attempts).toBe(1);
   });
 
   it('invalid payload lands in the DLQ', async () => {
@@ -614,7 +798,6 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
     await consumers.start();
     activeConsumers.push(consumers);
 
-    // Malformed event payload (missing required title and category)
     const invalidEvent = {
       eventId: crypto.randomUUID(),
       eventType: 'report.submitted',
@@ -624,7 +807,6 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
       payload: {
         reportId: crypto.randomUUID(),
         reporterId: crypto.randomUUID()
-        // Missing title, category, description, etc.
       }
     };
 
@@ -637,7 +819,6 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
       invalidEvent
     );
 
-    // Check that message was dropped to DLQ (notification.report-submitted.dlq)
     let deadBody: Record<string, unknown> | null = null;
     for (let i = 0; i < 30; i++) {
       const dlqMsg = await rabbitClient.basicGet('notification.report-submitted.dlq');
@@ -665,7 +846,6 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
     const logger = createLogger({ serviceName: 'test-poison', level: 'silent' });
     const validator = createEventValidator(config);
 
-    // Create consumer with callback that throws on a specific eventId
     const poisonEventId = crypto.randomUUID();
     const consumers = createNotificationConsumers({
       config: { ...config, DELIVERY_LIMIT: 2 },
@@ -710,7 +890,6 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
       poisonEvent
     );
 
-    // Quorum queue retries up to delivery limit 2, then routes to DLQ
     let poisonDeadBody: Record<string, unknown> | null = null;
     for (let i = 0; i < 40; i++) {
       const dlqMsg = await rabbitClient.basicGet('notification.user-created.dlq');

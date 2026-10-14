@@ -1,12 +1,13 @@
 # PROGRESS: Civic Issue Tracker
 
+> **Last updated:** 2026-10-14
 > Updated manually by the developer from lines supplied by Claude after each verified step.
 > Paste the **Status** block into a new chat if the uploaded copy may be stale.
 
 ## Status
 
 - **Current phase:** Phase 1, Walking skeleton (in progress)
-- **Last verified step:** Cycle 3: Notification + Analytics & Audit (email delivery via Mailpit, audit log, summary stats, Phase 1 exit test verified) (D-041)
+- **Last verified step:** Cycle 3b: dependency repair and review fixes (Phase 1 exit test verified (local), D-042)
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
 - **Cloud account:** not created (by design; created in Phase 5)
 - **Next action:** v1 cycle 4: Python base + Image + Routing
@@ -17,7 +18,7 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 
 - [x] Cycle 1: Auth (committed)
 - [x] Cycle 2: Gateway + Report (D-040)
-- [x] Cycle 3: Notification + Analytics & Audit (D-041, Phase 1 exit test verified)
+- [x] Cycle 3: Notification + Analytics & Audit (Phase 1 exit test verified (local), D-041, D-042)
 - [ ] Cycle 4: Python base + Image + Routing
 - [ ] Cycle 5: Web Frontend + backend gaps
 - [ ] Cycle 6: Local Kubernetes
@@ -102,3 +103,4 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 | 2026-10-13 | Slice 2: Auth service (register, login, refresh, logout, JWT, user.created) end to end in Compose (D-038) | Verified |
 | 2026-10-13 | v1 cycle 2: Gateway + Report (D-040) | Verified |
 | 2026-10-13 | v1 cycle 3: Notification + Analytics & Audit (Phase 1 exit test verified) (D-041) | Verified |
+| 2026-10-14 | Cycle 3b: dependency repair and review fixes (D-042) | Phase 1 exit test verified (local) |

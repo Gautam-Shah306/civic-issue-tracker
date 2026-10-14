@@ -18,9 +18,15 @@ export interface AppDependencies {
 export async function buildApp(config: Config, deps: AppDependencies = {}) {
   const logger = createLogger({ serviceName: config.SERVICE_NAME, level: config.LOG_LEVEL });
 
+  const trustProxy =
+    typeof config.TRUST_PROXY === 'number'
+      ? (_addr: string, hop: number) => hop < (config.TRUST_PROXY as number)
+      : config.TRUST_PROXY;
+
   const app = Fastify({
     loggerInstance: logger,
-    bodyLimit: 1048576 // 1 MiB limit
+    bodyLimit: 1048576, // 1 MiB limit
+    trustProxy
   });
 
   // 1. Security headers (Helmet)
@@ -62,11 +68,29 @@ export async function buildApp(config: Config, deps: AppDependencies = {}) {
     return payload;
   });
 
-  // 5. Rate Limiting backed by Redis (fail-open)
-  const redisClient = await registerRateLimiter(app, { config, redis: deps.redis });
-
-  // 6. JWT Verifier
+  // 5. JWT Verifier
   const jwtVerifier = deps.jwtVerifier || (await createJwtVerifier(config));
+
+  // Global onRequest hook: verify Bearer token when present to set request.user for per-user rate limiting
+  app.addHook('onRequest', async (request) => {
+    const authHeader = request.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const user = await jwtVerifier.verifyToken(authHeader);
+        request.user = user;
+        request.headers['x-user-id'] = user.id;
+        request.headers['x-user-role'] = user.role;
+        if (user.email) {
+          request.headers['x-user-email'] = user.email;
+        }
+      } catch {
+        // Absent or invalid tokens continue, route policies still enforce authentication
+      }
+    }
+  });
+
+  // 6. Rate Limiting backed by Redis (fail-open)
+  const redisClient = await registerRateLimiter(app, { config, redis: deps.redis });
 
   // 7. Health & Readiness probes
   app.get('/healthz', async () => {

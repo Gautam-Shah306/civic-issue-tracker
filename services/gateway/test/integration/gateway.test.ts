@@ -1,5 +1,5 @@
 import { generateKeyPairSync } from 'node:crypto';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import Fastify, { FastifyInstance } from 'fastify';
 import { RedisContainer, StartedRedisContainer } from '@testcontainers/redis';
@@ -143,6 +143,12 @@ describe('Gateway Service Integration Tests', () => {
     if (analyticsUpstream) await analyticsUpstream.close();
     if (redisClient) redisClient.disconnect();
     if (redisContainer) await redisContainer.stop();
+  });
+
+  beforeEach(async () => {
+    if (redisClient && redisClient.status === 'ready') {
+      await redisClient.flushall();
+    }
   });
 
   async function createToken(claims: { sub: string; role: string; email?: string }, exp = '15m') {
@@ -333,19 +339,155 @@ describe('Gateway Service Integration Tests', () => {
     });
 
     it('fails open when Redis connection is broken', async () => {
-      // Disconnect redis client
-      redisClient.disconnect();
+      const brokenRedis = new Redis('redis://127.0.0.1:1/0', {
+        maxRetriesPerRequest: 0,
+        enableOfflineQueue: false,
+        lazyConnect: true
+      });
+      const failConfig = loadConfig({
+        AUTH_SERVICE_URL: `http://127.0.0.1:${authPort}`,
+        REPORT_SERVICE_URL: `http://127.0.0.1:${reportPort}`,
+        ANALYTICS_URL: `http://127.0.0.1:${analyticsPort}`,
+        REDIS_URL: 'redis://127.0.0.1:1/0',
+        JWT_PUBLIC_KEY_B64: publicKeyB64,
+        LOG_LEVEL: 'silent'
+      });
+      const failOpenApp = await buildApp(failConfig, { redis: brokenRedis });
+      await failOpenApp.listen({ port: 0, host: '127.0.0.1' });
 
-      const res = await request(gatewayApp.server)
+      const res = await request(failOpenApp.server)
         .post('/api/v1/auth/login')
         .send({ email: 'test@example.com', password: 'password123' });
 
       // Request must proceed without 500 error
       expect(res.status).toBe(200);
 
-      // Reconnect redis for subsequent tests
-      const redisUrl = redisContainer.getConnectionUrl();
-      redisClient = new Redis(redisUrl);
+      await failOpenApp.close();
+      brokenRedis.disconnect();
+    });
+
+    it('with TRUST_PROXY=1 client IP comes from x-forwarded-for', async () => {
+      const tpConfig = loadConfig({
+        AUTH_SERVICE_URL: `http://127.0.0.1:${authPort}`,
+        REPORT_SERVICE_URL: `http://127.0.0.1:${reportPort}`,
+        ANALYTICS_URL: `http://127.0.0.1:${analyticsPort}`,
+        REDIS_URL: redisContainer.getConnectionUrl(),
+        JWT_PUBLIC_KEY_B64: publicKeyB64,
+        TRUST_PROXY: '1',
+        LOG_LEVEL: 'silent'
+      });
+      const tpRedis = new Redis(redisContainer.getConnectionUrl());
+      await tpRedis.flushall();
+      const tpApp = await buildApp(tpConfig, { redis: tpRedis });
+      await tpApp.listen({ port: 0, host: '127.0.0.1' });
+
+      const uniqueForwardedIp = '198.51.100.42';
+      for (let i = 0; i < 10; i++) {
+        const res = await request(tpApp.server)
+          .post('/api/v1/auth/refresh')
+          .set('x-forwarded-for', uniqueForwardedIp);
+        expect(res.status).toBe(200);
+      }
+      const r11 = await request(tpApp.server)
+        .post('/api/v1/auth/refresh')
+        .set('x-forwarded-for', uniqueForwardedIp);
+      expect(r11.status).toBe(429);
+
+      // Different IP gets 200 because IP bucket is separated
+      const differentIp = '198.51.100.254';
+      const rOther = await request(tpApp.server)
+        .post('/api/v1/auth/refresh')
+        .set('x-forwarded-for', differentIp);
+      expect(rOther.status).toBe(200);
+
+      await tpApp.close();
+      tpRedis.disconnect();
+    });
+
+    it('with TRUST_PROXY=false spoofed x-forwarded-for does NOT change rate-limit bucket', async () => {
+      const noTpConfig = loadConfig({
+        AUTH_SERVICE_URL: `http://127.0.0.1:${authPort}`,
+        REPORT_SERVICE_URL: `http://127.0.0.1:${reportPort}`,
+        ANALYTICS_URL: `http://127.0.0.1:${analyticsPort}`,
+        REDIS_URL: redisContainer.getConnectionUrl(),
+        JWT_PUBLIC_KEY_B64: publicKeyB64,
+        TRUST_PROXY: false,
+        LOG_LEVEL: 'silent'
+      });
+      const noTpRedis = new Redis(redisContainer.getConnectionUrl());
+      await noTpRedis.flushall();
+      const noTpApp = await buildApp(noTpConfig, { redis: noTpRedis });
+      await noTpApp.listen({ port: 0, host: '127.0.0.1' });
+
+      // Send 10 requests with different spoofed x-forwarded-for values
+      for (let i = 0; i < 10; i++) {
+        const res = await request(noTpApp.server)
+          .post('/api/v1/auth/refresh')
+          .set('x-forwarded-for', `203.0.113.${i + 1}`);
+        expect(res.status).toBe(200);
+      }
+      // 11th request with another spoofed IP is still 429 because socket IP bucket is shared
+      const r11 = await request(noTpApp.server)
+        .post('/api/v1/auth/refresh')
+        .set('x-forwarded-for', '203.0.113.99');
+      expect(r11.status).toBe(429);
+
+      await noTpApp.close();
+      noTpRedis.disconnect();
+    });
+
+    it('per-user rate limit keys by user ID when token is present', async () => {
+      if (redisClient && redisClient.status === 'ready') {
+        await redisClient.flushall();
+      }
+      const userId1 = `rate-user-1-${Date.now()}`;
+      const token1 = await createToken({ sub: userId1, role: 'citizen' });
+
+      for (let i = 0; i < 120; i++) {
+        const res = await request(gatewayApp.server)
+          .get('/api/v1/public/reports')
+          .set('Authorization', `Bearer ${token1}`);
+        expect(res.status).toBe(200);
+      }
+
+      const r121 = await request(gatewayApp.server)
+        .get('/api/v1/public/reports')
+        .set('Authorization', `Bearer ${token1}`);
+      expect(r121.status).toBe(429);
+      expect(r121.body.code).toBe('rate_limit_exceeded');
+
+      // Different user gets 200
+      const userId2 = `rate-user-2-${Date.now()}`;
+      const token2 = await createToken({ sub: userId2, role: 'citizen' });
+      const rUser2 = await request(gatewayApp.server)
+        .get('/api/v1/public/reports')
+        .set('Authorization', `Bearer ${token2}`);
+      expect(rUser2.status).toBe(200);
+    });
+  });
+
+  describe('Configuration Validation', () => {
+    it('fails when JWT_PUBLIC_KEY_B64 is missing', () => {
+      expect(() => {
+        loadConfig({
+          AUTH_SERVICE_URL: 'http://auth:3000',
+          REPORT_SERVICE_URL: 'http://report:3000',
+          ANALYTICS_URL: 'http://analytics:3000',
+          REDIS_URL: 'redis://127.0.0.1:6379/0'
+        });
+      }).toThrow();
+    });
+
+    it('fails when JWT_PUBLIC_KEY_B64 is unparsable or not a public key', () => {
+      expect(() => {
+        loadConfig({
+          AUTH_SERVICE_URL: 'http://auth:3000',
+          REPORT_SERVICE_URL: 'http://report:3000',
+          ANALYTICS_URL: 'http://analytics:3000',
+          REDIS_URL: 'redis://127.0.0.1:6379/0',
+          JWT_PUBLIC_KEY_B64: Buffer.from('invalid-key-data').toString('base64')
+        });
+      }).toThrow();
     });
   });
 

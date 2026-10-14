@@ -17,7 +17,11 @@ export const ConfigSchema = z.object({
   SMTP_PASSWORD: z.string().optional(),
   DELIVERY_LIMIT: z.coerce.number().default(5),
   CONTRACTS_DIR: z.string().optional(),
-  SENDER_INTERVAL_MS: z.coerce.number().default(1000)
+  SENDER_INTERVAL_MS: z.coerce.number().default(1000),
+  SENDER_MAX_ATTEMPTS: z.coerce.number().int().min(1).default(10),
+  SENDER_BACKOFF_CAP_SECONDS: z.coerce.number().int().min(1).default(300),
+  SENDER_LEASE_SECONDS: z.coerce.number().int().min(1).default(60),
+  SENDER_WAIT_TIMEOUT_SECONDS: z.coerce.number().int().min(1).default(3600)
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

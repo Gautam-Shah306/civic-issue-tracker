@@ -159,10 +159,10 @@ export const publicRoutes: FastifyPluginAsync<PublicRouteOptions> = async (fasti
 
       const report = reportRes.rows[0];
 
-      // Timeline without actor ids
+      // Timeline without actor ids or internal notes
       const timelineRes = await pool.query(
         `SELECT from_status as "fromStatus", to_status as "toStatus",
-                reason_code as "reasonCode", note, changed_at as "changedAt"
+                reason_code as "reasonCode", changed_at as "changedAt"
          FROM status_history
          WHERE report_id = $1
          ORDER BY changed_at ASC, id ASC`,

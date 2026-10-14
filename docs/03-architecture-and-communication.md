@@ -1,6 +1,6 @@
 # 03: Architecture and Communication
 
-> **Status:** Approved · **Last updated:** 2026-10-13
+> **Status:** Approved · **Last updated:** 2026-10-14
 > **Principle:** split by business capability; each service owns its data; keep the service count small enough to run on free-tier resources.
 
 ---
@@ -93,7 +93,9 @@ If Image or Notification is down, events wait in the queue and are processed on 
 
 Rejected is terminal. Rejection needs a reason code (duplicate, invalid, out_of_jurisdiction) and an optional note (STS-07). `system` transitions are made by event consumers (cycle 4) and are not callable through the API. Every transition writes a history row and publishes `report.status-changed`.
 
-## 6. Notification emails (D-041)
+## 6. Notification emails (D-041, D-042)
+
+Recipients and report titles are resolved by the sender at send time with a join on `recipients` and `report_index` (D-042). If recipient or report data has not yet arrived when an event is consumed, the notification is held in `pending` state with automatic retries and a 1-hour timeout (superseding the skip-on-unknown behavior of D-041).
 
 ### 1. Welcome
 - **Trigger:** `user.created` event published by Auth service.

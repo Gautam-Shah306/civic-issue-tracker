@@ -560,6 +560,7 @@ describe('Report Service Integration Tests (Testcontainers PostGIS & RabbitMQ)',
     expect(pubDetail.status).toBe(200);
     expect(pubDetail.body).toHaveProperty('timeline');
     expect(pubDetail.body.timeline[0]).not.toHaveProperty('changedBy');
+    expect(pubDetail.body.timeline[0]).not.toHaveProperty('note');
     expect(pubDetail.body.lat).toBe(23.0226);
     expect(pubDetail.body.lng).toBe(72.5715);
 

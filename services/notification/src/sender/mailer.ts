@@ -13,9 +13,9 @@ export function createMailer(config: Config): Transporter {
     port: config.SMTP_PORT,
     secure: false, // Plain SMTP (Mailpit port 1025)
     ignoreTLS: true,
-    connectionTimeout: 3000,
-    greetingTimeout: 3000,
-    socketTimeout: 3000,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
     auth:
       config.SMTP_USER && config.SMTP_PASSWORD
         ? {

@@ -4,16 +4,12 @@ import { Connection, Consumer, ConsumerStatus, AsyncMessage } from 'rabbitmq-cli
 import { Logger } from 'pino';
 import { Config } from '../config.js';
 import { ConsumerEventValidator, EventEnvelope } from './validator.js';
-import {
-  renderWelcomeEmail,
-  renderReportReceivedEmail,
-  renderStatusChangedEmail
-} from '../sender/mailer.js';
 
 export interface NotificationConsumers {
   start(): Promise<void>;
   stop(): Promise<void>;
-  getMetrics(): { unknownRecipientCount: number; processedCount: number };
+  getMetrics(): { waitingCount: number; processedCount: number };
+  getWaitingCount(): Promise<number>;
 }
 
 export function createNotificationConsumers(options: {
@@ -27,7 +23,7 @@ export function createNotificationConsumers(options: {
 }): NotificationConsumers {
   const { config, pool, rabbitClient, validator, logger, onHandlerError, testHook } = options;
   const consumers: Consumer[] = [];
-  const metrics = { unknownRecipientCount: 0, processedCount: 0 };
+  const metrics = { processedCount: 0 };
 
   async function initTopology(): Promise<void> {
     // 1. Declare exchanges
@@ -178,20 +174,11 @@ export function createNotificationConsumers(options: {
           [payload.userId, payload.email, payload.displayName, payload.role]
         );
 
-        const email = renderWelcomeEmail(payload.displayName);
         await client.query(
-          `INSERT INTO notifications (id, event_id, kind, recipient_user_id, recipient_email, subject, body, status, created_at, next_attempt_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', clock_timestamp(), clock_timestamp())
+          `INSERT INTO notifications (id, event_id, kind, recipient_user_id, report_id, data, status, created_at, next_attempt_at)
+           VALUES ($1, $2, 'welcome', $3, NULL, NULL, 'pending', clock_timestamp(), clock_timestamp())
            ON CONFLICT (event_id, kind) DO NOTHING;`,
-          [
-            crypto.randomUUID(),
-            data.eventId,
-            'welcome',
-            payload.userId,
-            payload.email,
-            email.subject,
-            email.text
-          ]
+          [crypto.randomUUID(), data.eventId, payload.userId]
         );
       } else if (data.eventType === 'report.submitted') {
         const payload = data.payload as {
@@ -209,39 +196,12 @@ export function createNotificationConsumers(options: {
           [payload.reportId, payload.reporterId, payload.title]
         );
 
-        const recRes = await client.query<{ email: string; display_name: string }>(
-          `SELECT email, display_name FROM recipients WHERE user_id = $1`,
-          [payload.reporterId]
+        await client.query(
+          `INSERT INTO notifications (id, event_id, kind, recipient_user_id, report_id, data, status, created_at, next_attempt_at)
+           VALUES ($1, $2, 'report_received', $3, $4, NULL, 'pending', clock_timestamp(), clock_timestamp())
+           ON CONFLICT (event_id, kind) DO NOTHING;`,
+          [crypto.randomUUID(), data.eventId, payload.reporterId, payload.reportId]
         );
-
-        if (recRes.rows.length > 0) {
-          const rec = recRes.rows[0];
-          const email = renderReportReceivedEmail(
-            rec.display_name,
-            payload.title,
-            payload.reportId
-          );
-          await client.query(
-            `INSERT INTO notifications (id, event_id, kind, recipient_user_id, recipient_email, subject, body, status, created_at, next_attempt_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', clock_timestamp(), clock_timestamp())
-             ON CONFLICT (event_id, kind) DO NOTHING;`,
-            [
-              crypto.randomUUID(),
-              data.eventId,
-              'report_received',
-              payload.reporterId,
-              rec.email,
-              email.subject,
-              email.text
-            ]
-          );
-        } else {
-          metrics.unknownRecipientCount++;
-          logger.warn(
-            { reportId: payload.reportId, reporterId: payload.reporterId, eventId: data.eventId },
-            'Unknown recipient for report submission; notification skipped'
-          );
-        }
       } else if (data.eventType === 'report.status-changed') {
         const payload = data.payload as {
           reportId: string;
@@ -249,54 +209,25 @@ export function createNotificationConsumers(options: {
           toStatus: string;
         };
 
-        const repRes = await client.query<{ reporter_id: string; title: string }>(
-          `SELECT reporter_id, title FROM report_index WHERE report_id = $1`,
+        const repRes = await client.query<{ reporter_id: string }>(
+          `SELECT reporter_id FROM report_index WHERE report_id = $1`,
           [payload.reportId]
         );
 
-        if (repRes.rows.length > 0) {
-          const rep = repRes.rows[0];
-          const recRes = await client.query<{ email: string; display_name: string }>(
-            `SELECT email, display_name FROM recipients WHERE user_id = $1`,
-            [rep.reporter_id]
-          );
+        const reporterId = repRes.rows.length > 0 ? repRes.rows[0].reporter_id : null;
 
-          if (recRes.rows.length > 0) {
-            const rec = recRes.rows[0];
-            const email = renderStatusChangedEmail(
-              rec.display_name,
-              rep.title,
-              payload.toStatus,
-              payload.reportId
-            );
-            await client.query(
-              `INSERT INTO notifications (id, event_id, kind, recipient_user_id, recipient_email, subject, body, status, created_at, next_attempt_at)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', clock_timestamp(), clock_timestamp())
-               ON CONFLICT (event_id, kind) DO NOTHING;`,
-              [
-                crypto.randomUUID(),
-                data.eventId,
-                'status_changed',
-                rep.reporter_id,
-                rec.email,
-                email.subject,
-                email.text
-              ]
-            );
-          } else {
-            metrics.unknownRecipientCount++;
-            logger.warn(
-              { reportId: payload.reportId, reporterId: rep.reporter_id, eventId: data.eventId },
-              'Unknown recipient for status change; notification skipped'
-            );
-          }
-        } else {
-          metrics.unknownRecipientCount++;
-          logger.warn(
-            { reportId: payload.reportId, eventId: data.eventId },
-            'Report not found in index for status change; notification skipped'
-          );
-        }
+        await client.query(
+          `INSERT INTO notifications (id, event_id, kind, recipient_user_id, report_id, data, status, created_at, next_attempt_at)
+           VALUES ($1, $2, 'status_changed', $3, $4, $5, 'pending', clock_timestamp(), clock_timestamp())
+           ON CONFLICT (event_id, kind) DO NOTHING;`,
+          [
+            crypto.randomUUID(),
+            data.eventId,
+            reporterId,
+            payload.reportId,
+            JSON.stringify({ toStatus: payload.toStatus, fromStatus: payload.fromStatus })
+          ]
+        );
       }
 
       await client.query('COMMIT');
@@ -393,8 +324,14 @@ export function createNotificationConsumers(options: {
       }
       logger.info('Notification consumers stopped');
     },
+    async getWaitingCount(): Promise<number> {
+      const res = await pool.query<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM notifications WHERE status = 'pending' AND last_error = 'waiting for recipient data';`
+      );
+      return parseInt(res.rows[0]?.count || '0', 10);
+    },
     getMetrics() {
-      return { ...metrics };
+      return { waitingCount: 0, processedCount: metrics.processedCount };
     }
   };
 }

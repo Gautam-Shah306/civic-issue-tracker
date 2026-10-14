@@ -415,7 +415,7 @@ services:
       ANALYTICS_URL: http://analytics:3000
       REDIS_URL: redis://:${REDIS_PASSWORD:?Redis password is required}@redis:6379/0
       JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?JWT public key is required}
-      CORS_ORIGINS: "*"
+      CORS_ORIGINS: "http://localhost:5173"
     healthcheck:
       test: ["CMD", "/nodejs/bin/node", "dist/healthcheck.js"]
       interval: 10s
