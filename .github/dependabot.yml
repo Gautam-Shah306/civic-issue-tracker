@@ -32,61 +32,13 @@ updates:
     open-pull-requests-limit: 5
 
   - package-ecosystem: "npm"
-    directory: "/contracts"
-    schedule:
-      interval: "weekly"
-    cooldown:
-      default-days: 7
-    groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
-    # Major upgrades are manual decisions (Node 25 is not LTS; TypeScript 7 is blocked by the typescript-eslint peer range; @types/node must match the Node 24 runtime; infrastructure image majors need a data plan)
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-major"
-    open-pull-requests-limit: 5
-
-  - package-ecosystem: "npm"
-    directory: "/services/auth"
-    schedule:
-      interval: "weekly"
-    cooldown:
-      default-days: 7
-    groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
-    # Major upgrades are manual decisions (Node 25 is not LTS; TypeScript 7 is blocked by the typescript-eslint peer range; @types/node must match the Node 24 runtime; infrastructure image majors need a data plan)
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-major"
-    open-pull-requests-limit: 5
-
-  - package-ecosystem: "docker"
-    directory: "/services/auth"
-    schedule:
-      interval: "weekly"
-    cooldown:
-      default-days: 7
-    groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
-    # Major upgrades are manual decisions (Node 25 is not LTS; TypeScript 7 is blocked by the typescript-eslint peer range; @types/node must match the Node 24 runtime; infrastructure image majors need a data plan)
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-major"
-    open-pull-requests-limit: 5
-
-  - package-ecosystem: "npm"
-    directory: "/services/report"
+    directories:
+      - "/contracts"
+      - "/services/auth"
+      - "/services/report"
+      - "/services/gateway"
+      - "/services/notification"
+      - "/services/analytics"
     schedule:
       interval: "weekly"
     cooldown:
@@ -104,7 +56,12 @@ updates:
     open-pull-requests-limit: 5
 
   - package-ecosystem: "docker"
-    directory: "/services/report"
+    directories:
+      - "/services/auth"
+      - "/services/report"
+      - "/services/gateway"
+      - "/services/notification"
+      - "/services/analytics"
     schedule:
       interval: "weekly"
     cooldown:
@@ -115,110 +72,6 @@ updates:
           - "minor"
           - "patch"
     # Major upgrades are manual decisions (Node 25 is not LTS; TypeScript 7 is blocked by the typescript-eslint peer range; @types/node must match the Node 24 runtime; infrastructure image majors need a data plan)
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-major"
-    open-pull-requests-limit: 5
-
-  - package-ecosystem: "npm"
-    directory: "/services/gateway"
-    schedule:
-      interval: "weekly"
-    cooldown:
-      default-days: 7
-    groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
-    # Major upgrades are manual decisions (Node 25 is not LTS; TypeScript 7 is blocked by the typescript-eslint peer range; @types/node must match the Node 24 runtime; infrastructure image majors need a data plan)
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-major"
-    open-pull-requests-limit: 5
-
-  - package-ecosystem: "docker"
-    directory: "/services/gateway"
-    schedule:
-      interval: "weekly"
-    cooldown:
-      default-days: 7
-    groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
-    # Major upgrades are manual decisions (Node 25 is not LTS; TypeScript 7 is blocked by the typescript-eslint peer range; @types/node must match the Node 24 runtime; infrastructure image majors need a data plan)
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-major"
-    open-pull-requests-limit: 5
-
-  - package-ecosystem: "npm"
-    directory: "/services/notification"
-    schedule:
-      interval: "weekly"
-    cooldown:
-      default-days: 7
-    groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-major"
-    open-pull-requests-limit: 5
-
-  - package-ecosystem: "docker"
-    directory: "/services/notification"
-    schedule:
-      interval: "weekly"
-    cooldown:
-      default-days: 7
-    groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-major"
-    open-pull-requests-limit: 5
-
-  - package-ecosystem: "npm"
-    directory: "/services/analytics"
-    schedule:
-      interval: "weekly"
-    cooldown:
-      default-days: 7
-    groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-major"
-    open-pull-requests-limit: 5
-
-  - package-ecosystem: "docker"
-    directory: "/services/analytics"
-    schedule:
-      interval: "weekly"
-    cooldown:
-      default-days: 7
-    groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
     ignore:
       - dependency-name: "*"
         update-types:

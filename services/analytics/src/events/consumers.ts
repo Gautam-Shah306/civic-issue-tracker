@@ -241,15 +241,16 @@ export function createAnalyticsConsumers(options: {
           category: string;
           submittedAt?: string;
         };
-        const createdAt = p.submittedAt || data.occurredAt;
+        const submittedAt = p.submittedAt || data.occurredAt;
         await client.query(
-          `INSERT INTO report_index (report_id, category, current_status, created_at, resolved_at)
-           VALUES ($1, $2, 'Submitted', $3, NULL)
+          `INSERT INTO report_index (
+             report_id, category, current_status, created_at, resolved_at, last_event_at
+           )
+           VALUES ($1, $2, 'Submitted', $3, NULL, $3)
            ON CONFLICT (report_id) DO UPDATE SET
              category = EXCLUDED.category,
-             current_status = 'Submitted',
              created_at = EXCLUDED.created_at;`,
-          [p.reportId, p.category, createdAt]
+          [p.reportId, p.category, submittedAt]
         );
       } else if (data.eventType === 'report.status-changed') {
         const p = data.payload as {
@@ -257,29 +258,25 @@ export function createAnalyticsConsumers(options: {
           toStatus: string;
           changedAt?: string;
         };
+        const changedAt = p.changedAt || data.occurredAt;
+        const resolvedAt = p.toStatus === 'Resolved' ? changedAt : null;
 
-        if (p.toStatus === 'Resolved') {
-          await client.query(
-            `UPDATE report_index
-             SET current_status = $2, resolved_at = clock_timestamp()
-             WHERE report_id = $1;`,
-            [p.reportId, p.toStatus]
-          );
-        } else if (p.toStatus === 'Reopened') {
-          await client.query(
-            `UPDATE report_index
-             SET current_status = $2, resolved_at = NULL
-             WHERE report_id = $1;`,
-            [p.reportId, p.toStatus]
-          );
-        } else {
-          await client.query(
-            `UPDATE report_index
-             SET current_status = $2
-             WHERE report_id = $1;`,
-            [p.reportId, p.toStatus]
-          );
-        }
+        await client.query(
+          `INSERT INTO report_index (
+             report_id, category, current_status, created_at, resolved_at, last_event_at
+           )
+           VALUES ($1, 'unknown', $2, $3, $4, $3)
+           ON CONFLICT (report_id) DO UPDATE SET
+             current_status = EXCLUDED.current_status,
+             resolved_at = CASE
+               WHEN EXCLUDED.current_status = 'Resolved' THEN EXCLUDED.resolved_at
+               WHEN EXCLUDED.current_status = 'Reopened' THEN NULL
+               ELSE report_index.resolved_at
+             END,
+             last_event_at = EXCLUDED.last_event_at
+           WHERE report_index.last_event_at IS NULL OR EXCLUDED.last_event_at > report_index.last_event_at;`,
+          [p.reportId, p.toStatus, changedAt, resolvedAt]
+        );
       }
 
       await client.query('COMMIT');

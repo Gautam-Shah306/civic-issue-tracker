@@ -39,6 +39,7 @@ export function createSenderLoop(options: SenderLoopOptions): SenderLoop {
       data: unknown;
       attempts: number;
       created_at: Date;
+      waiting_since: Date | null;
     }> = [];
 
     try {
@@ -53,8 +54,9 @@ export function createSenderLoop(options: SenderLoopOptions): SenderLoop {
         data: unknown;
         attempts: number;
         created_at: Date;
+        waiting_since: Date | null;
       }>(
-        `SELECT id, event_id, kind, recipient_user_id, report_id, data, attempts, created_at
+        `SELECT id, event_id, kind, recipient_user_id, report_id, data, attempts, created_at, waiting_since
          FROM notifications
          WHERE status = 'pending' AND next_attempt_at <= clock_timestamp()
          ORDER BY created_at ASC
@@ -92,24 +94,6 @@ export function createSenderLoop(options: SenderLoopOptions): SenderLoop {
     const now = Date.now();
 
     for (const row of claimedRows) {
-      const ageSeconds = (now - new Date(row.created_at).getTime()) / 1000;
-
-      // 1-hour wait timeout for missing recipient data
-      if (ageSeconds >= config.SENDER_WAIT_TIMEOUT_SECONDS) {
-        await pool.query(
-          `UPDATE notifications
-           SET status = 'failed',
-               last_error = 'waiting for recipient data timeout (1 hour)'
-           WHERE id = $1;`,
-          [row.id]
-        );
-        logger.warn(
-          { notificationId: row.id, kind: row.kind, ageSeconds },
-          'Notification failed after recipient data timeout'
-        );
-        continue;
-      }
-
       // Resolve recipient data at send time
       let recipientUserId = row.recipient_user_id;
       let reportTitle: string | null = null;
@@ -144,10 +128,31 @@ export function createSenderLoop(options: SenderLoopOptions): SenderLoop {
         !recipientEmail || !recipientDisplayName || (row.kind !== 'welcome' && !reportTitle);
 
       if (isDataMissing) {
+        // If row was already waiting, check if waiting time exceeded timeout
+        if (row.waiting_since) {
+          const waitingSeconds = (now - new Date(row.waiting_since).getTime()) / 1000;
+          if (waitingSeconds >= config.SENDER_WAIT_TIMEOUT_SECONDS) {
+            await pool.query(
+              `UPDATE notifications
+               SET status = 'failed',
+                   last_error = 'waiting for recipient data timeout (1 hour)'
+               WHERE id = $1;`,
+              [row.id]
+            );
+            logger.warn(
+              { notificationId: row.id, kind: row.kind, waitingSeconds },
+              'Notification failed after recipient data timeout'
+            );
+            continue;
+          }
+        }
+
+        // Set waiting_since if this is the first time data was found missing
         await pool.query(
           `UPDATE notifications
            SET next_attempt_at = clock_timestamp() + interval '10 second',
                recipient_user_id = COALESCE(recipient_user_id, $2),
+               waiting_since = COALESCE(waiting_since, clock_timestamp()),
                last_error = 'waiting for recipient data'
            WHERE id = $1;`,
           [row.id, recipientUserId || null]
@@ -214,6 +219,7 @@ export function createSenderLoop(options: SenderLoopOptions): SenderLoop {
                recipient_email = $4,
                subject = $5,
                body = $6,
+               waiting_since = NULL,
                last_error = NULL
            WHERE id = $1;`,
           [row.id, nextAttempts, recipientUserId, recipientEmail, emailSubject, emailBody]

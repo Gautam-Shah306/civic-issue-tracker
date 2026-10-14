@@ -16,6 +16,20 @@ import { createLogger } from '../../src/logger.js';
 import { createEventValidator } from '../../src/events/validator.js';
 import { createAnalyticsConsumers } from '../../src/events/consumers.js';
 
+async function pollUntil<T>(
+  fn: () => Promise<T | null | false | undefined>,
+  timeoutMs = 30000,
+  intervalMs = 150
+): Promise<T> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const res = await fn();
+    if (res) return res;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  throw new Error(`Polling timed out after ${timeoutMs}ms`);
+}
+
 describe('Analytics & Audit Service Integration Tests (Testcontainers)', () => {
   let pgContainer: StartedPostgreSqlContainer;
   let rabbitContainer: StartedRabbitMQContainer;
@@ -199,36 +213,36 @@ describe('Analytics & Audit Service Integration Tests (Testcontainers)', () => {
     await expect(rwPool.query(`TRUNCATE audit_log`)).rejects.toThrow();
 
     // 4. Owner role attempts UPDATE (trigger raises 55000 reject_audit_log_mutation)
-    let updateErr: any = null;
+    let updateErr: (Error & { code?: string }) | null = null;
     try {
       await ownerPool.query(`UPDATE audit_log SET actor = 'owner_update' WHERE event_id = $1`, [
         eventId
       ]);
-    } catch (err: any) {
-      updateErr = err;
+    } catch (err: unknown) {
+      updateErr = err as Error & { code?: string };
     }
     expect(updateErr).not.toBeNull();
-    expect(updateErr.code).toBe('55000');
+    expect(updateErr?.code).toBe('55000');
 
     // 5. Owner role attempts DELETE (trigger raises 55000)
-    let deleteErr: any = null;
+    let deleteErr: (Error & { code?: string }) | null = null;
     try {
       await ownerPool.query(`DELETE FROM audit_log WHERE event_id = $1`, [eventId]);
-    } catch (err: any) {
-      deleteErr = err;
+    } catch (err: unknown) {
+      deleteErr = err as Error & { code?: string };
     }
     expect(deleteErr).not.toBeNull();
-    expect(deleteErr.code).toBe('55000');
+    expect(deleteErr?.code).toBe('55000');
 
     // 6. Owner role attempts TRUNCATE (trigger raises 55000)
-    let truncErr: any = null;
+    let truncErr: (Error & { code?: string }) | null = null;
     try {
       await ownerPool.query(`TRUNCATE audit_log`);
-    } catch (err: any) {
-      truncErr = err;
+    } catch (err: unknown) {
+      truncErr = err as Error & { code?: string };
     }
     expect(truncErr).not.toBeNull();
-    expect(truncErr.code).toBe('55000');
+    expect(truncErr?.code).toBe('55000');
   });
 
   it('audit consumer stores every event type once, and ignores duplicates', async () => {
@@ -273,15 +287,13 @@ describe('Analytics & Audit Service Integration Tests (Testcontainers)', () => {
     );
 
     // Wait for audit log row
-    let auditRow: any = null;
-    for (let i = 0; i < 30; i++) {
-      const res = await rwPool.query('SELECT * FROM audit_log WHERE event_id = $1', [eventId]);
-      if (res.rows.length > 0) {
-        auditRow = res.rows[0];
-        break;
-      }
-      await new Promise((r) => setTimeout(r, 200));
-    }
+    const auditRow = await pollUntil(async () => {
+      const res = await rwPool.query<Record<string, unknown>>(
+        'SELECT * FROM audit_log WHERE event_id = $1',
+        [eventId]
+      );
+      return res.rows.length > 0 ? res.rows[0] : null;
+    });
 
     expect(auditRow).not.toBeNull();
     expect(auditRow.event_type).toBe('report.submitted');
@@ -319,15 +331,17 @@ describe('Analytics & Audit Service Integration Tests (Testcontainers)', () => {
 
     const reportId = crypto.randomUUID();
     const pub = rabbitClient.createPublisher({ confirms: true });
+    const baseTime = Date.now() - 36000000; // 10h ago
 
     // 1. report.submitted
+    const submittedTime = new Date(baseTime).toISOString();
     await pub.send(
       { exchange: 'civic.events', routingKey: 'report.submitted' },
       {
         eventId: crypto.randomUUID(),
         eventType: 'report.submitted',
         version: 1,
-        occurredAt: new Date(Date.now() - 36000000).toISOString(), // 10h ago
+        occurredAt: submittedTime,
         correlationId: crypto.randomUUID(),
         payload: {
           reportId,
@@ -336,140 +350,137 @@ describe('Analytics & Audit Service Integration Tests (Testcontainers)', () => {
           description: 'Deep hole',
           category: 'pothole',
           location: { lat: 23.0, lng: 72.0 },
-          submittedAt: new Date(Date.now() - 36000000).toISOString()
+          submittedAt: submittedTime
         }
       }
     );
 
-    // Wait for report_index insertion
-    for (let i = 0; i < 30; i++) {
+    // Wait for report_index insertion via polling (up to 30s)
+    await pollUntil(async () => {
       const res = await rwPool.query('SELECT * FROM report_index WHERE report_id = $1', [reportId]);
-      if (res.rows.length > 0) break;
-      await new Promise((r) => setTimeout(r, 200));
-    }
+      return res.rows.length > 0;
+    });
 
-    // 2. Verified
+    // 2. Verified (T1: baseTime + 2h)
+    const verifiedTime = new Date(baseTime + 7200000).toISOString();
     await pub.send(
       { exchange: 'civic.events', routingKey: 'report.status-changed' },
       {
         eventId: crypto.randomUUID(),
         eventType: 'report.status-changed',
         version: 1,
-        occurredAt: new Date().toISOString(),
+        occurredAt: verifiedTime,
         correlationId: crypto.randomUUID(),
         payload: {
           reportId,
           fromStatus: 'Submitted',
           toStatus: 'Verified',
           changedBy: crypto.randomUUID(),
-          changedAt: new Date().toISOString()
+          changedAt: verifiedTime
         }
       }
     );
 
-    // 3. Assigned
+    // 3. Assigned (T2: baseTime + 4h)
+    const assignedTime = new Date(baseTime + 14400000).toISOString();
     await pub.send(
       { exchange: 'civic.events', routingKey: 'report.status-changed' },
       {
         eventId: crypto.randomUUID(),
         eventType: 'report.status-changed',
         version: 1,
-        occurredAt: new Date().toISOString(),
+        occurredAt: assignedTime,
         correlationId: crypto.randomUUID(),
         payload: {
           reportId,
           fromStatus: 'Verified',
           toStatus: 'Assigned',
           changedBy: crypto.randomUUID(),
-          changedAt: new Date().toISOString()
+          changedAt: assignedTime
         }
       }
     );
 
-    // 4. In Progress
+    // 4. In Progress (T3: baseTime + 6h)
+    const inProgressTime = new Date(baseTime + 21600000).toISOString();
     await pub.send(
       { exchange: 'civic.events', routingKey: 'report.status-changed' },
       {
         eventId: crypto.randomUUID(),
         eventType: 'report.status-changed',
         version: 1,
-        occurredAt: new Date().toISOString(),
+        occurredAt: inProgressTime,
         correlationId: crypto.randomUUID(),
         payload: {
           reportId,
           fromStatus: 'Assigned',
           toStatus: 'In Progress',
           changedBy: crypto.randomUUID(),
-          changedAt: new Date().toISOString()
+          changedAt: inProgressTime
         }
       }
     );
 
-    // 5. Resolved
+    // 5. Resolved (T4: baseTime + 8h)
+    const resolvedTime = new Date(baseTime + 28800000).toISOString();
     await pub.send(
       { exchange: 'civic.events', routingKey: 'report.status-changed' },
       {
         eventId: crypto.randomUUID(),
         eventType: 'report.status-changed',
         version: 1,
-        occurredAt: new Date().toISOString(),
+        occurredAt: resolvedTime,
         correlationId: crypto.randomUUID(),
         payload: {
           reportId,
           fromStatus: 'In Progress',
           toStatus: 'Resolved',
           changedBy: crypto.randomUUID(),
-          changedAt: new Date().toISOString()
+          changedAt: resolvedTime
         }
       }
     );
 
-    // Wait for resolved_at to be set
-    let resolvedRow: any = null;
-    for (let i = 0; i < 30; i++) {
-      const res = await rwPool.query(
+    // Wait for resolved_at to be set via polling (up to 30s)
+    const resolvedRow = await pollUntil(async () => {
+      const res = await rwPool.query<Record<string, unknown>>(
         'SELECT * FROM report_index WHERE report_id = $1 AND resolved_at IS NOT NULL',
         [reportId]
       );
-      if (res.rows.length > 0) {
-        resolvedRow = res.rows[0];
-        break;
-      }
-      await new Promise((r) => setTimeout(r, 200));
-    }
+      return res.rows.length > 0 ? res.rows[0] : null;
+    });
+
     expect(resolvedRow).not.toBeNull();
     expect(resolvedRow.current_status).toBe('Resolved');
 
-    // 6. Reopened
+    // 6. Reopened (T5: baseTime + 9h)
+    const reopenedTime = new Date(baseTime + 32400000).toISOString();
     await pub.send(
       { exchange: 'civic.events', routingKey: 'report.status-changed' },
       {
         eventId: crypto.randomUUID(),
         eventType: 'report.status-changed',
         version: 1,
-        occurredAt: new Date().toISOString(),
+        occurredAt: reopenedTime,
         correlationId: crypto.randomUUID(),
         payload: {
           reportId,
           fromStatus: 'Resolved',
           toStatus: 'Reopened',
           changedBy: crypto.randomUUID(),
-          changedAt: new Date().toISOString()
+          changedAt: reopenedTime
         }
       }
     );
 
-    // Wait for resolved_at to be cleared
-    for (let i = 0; i < 30; i++) {
-      const res = await rwPool.query(
-        'SELECT * FROM report_index WHERE report_id = $1 AND current_status = $2',
+    // Wait for resolved_at to be cleared via polling (up to 30s)
+    await pollUntil(async () => {
+      const res = await rwPool.query<{ current_status: string; resolved_at: unknown }>(
+        'SELECT current_status, resolved_at FROM report_index WHERE report_id = $1 AND current_status = $2',
         [reportId, 'Reopened']
       );
-      if (res.rows.length > 0 && res.rows[0].resolved_at === null) {
-        break;
-      }
-      await new Promise((r) => setTimeout(r, 200));
-    }
+      return res.rows.length > 0 && res.rows[0].resolved_at === null;
+    });
 
     const officerToken = await createJwt(crypto.randomUUID(), 'officer');
     const res = await request(app.server)
@@ -480,6 +491,287 @@ describe('Analytics & Audit Service Integration Tests (Testcontainers)', () => {
     expect(res.body.totalReports).toBeGreaterThanOrEqual(1);
     expect(res.body.byCategory.pothole).toBeGreaterThanOrEqual(1);
     expect(res.body.byStatus.Reopened).toBeGreaterThanOrEqual(1);
+
+    await consumers.stop();
+  });
+
+  it('stats consumer deterministically converges to latest event state when five lifecycle events are published in shuffled orders concurrently', async () => {
+    const logger = createLogger({ serviceName: 'test-analytics-shuffled', level: 'silent' });
+    const validator = createEventValidator(config);
+    const consumers = createAnalyticsConsumers({
+      config,
+      pool: rwPool,
+      rabbitClient,
+      validator,
+      logger
+    });
+    await consumers.start();
+    activeConsumers.push(consumers);
+
+    const pub = rabbitClient.createPublisher({ confirms: true });
+
+    // We test 3 distinct reports with 3 different shuffled permutations of the 5 events
+    const permutations = [
+      [4, 2, 0, 3, 1], // Resolved, Assigned, Submitted, In Progress, Verified
+      [3, 4, 1, 0, 2], // In Progress, Resolved, Verified, Submitted, Assigned
+      [2, 3, 0, 4, 1] // Assigned, In Progress, Submitted, Resolved, Verified
+    ];
+
+    const reportIds: string[] = [];
+    const baseTime = Date.now() - 100000000;
+
+    for (let pIdx = 0; pIdx < permutations.length; pIdx++) {
+      const reportId = crypto.randomUUID();
+      reportIds.push(reportId);
+      const perm = permutations[pIdx];
+
+      const submittedAt = new Date(baseTime + pIdx * 10000000).toISOString();
+      const verifiedAt = new Date(baseTime + pIdx * 10000000 + 1000000).toISOString();
+      const assignedAt = new Date(baseTime + pIdx * 10000000 + 2000000).toISOString();
+      const inProgressAt = new Date(baseTime + pIdx * 10000000 + 3000000).toISOString();
+      const resolvedAt = new Date(baseTime + pIdx * 10000000 + 4000000).toISOString();
+
+      const events = [
+        // 0: submitted
+        {
+          routingKey: 'report.submitted',
+          message: {
+            eventId: crypto.randomUUID(),
+            eventType: 'report.submitted',
+            version: 1,
+            occurredAt: submittedAt,
+            correlationId: crypto.randomUUID(),
+            payload: {
+              reportId,
+              reporterId: crypto.randomUUID(),
+              title: `Shuffled Pothole ${pIdx}`,
+              description: 'Concurrent race test',
+              category: 'pothole',
+              location: { lat: 23.0, lng: 72.0 },
+              submittedAt
+            }
+          }
+        },
+        // 1: Verified
+        {
+          routingKey: 'report.status-changed',
+          message: {
+            eventId: crypto.randomUUID(),
+            eventType: 'report.status-changed',
+            version: 1,
+            occurredAt: verifiedAt,
+            correlationId: crypto.randomUUID(),
+            payload: {
+              reportId,
+              fromStatus: 'Submitted',
+              toStatus: 'Verified',
+              changedBy: crypto.randomUUID(),
+              changedAt: verifiedAt
+            }
+          }
+        },
+        // 2: Assigned
+        {
+          routingKey: 'report.status-changed',
+          message: {
+            eventId: crypto.randomUUID(),
+            eventType: 'report.status-changed',
+            version: 1,
+            occurredAt: assignedAt,
+            correlationId: crypto.randomUUID(),
+            payload: {
+              reportId,
+              fromStatus: 'Verified',
+              toStatus: 'Assigned',
+              changedBy: crypto.randomUUID(),
+              changedAt: assignedAt
+            }
+          }
+        },
+        // 3: In Progress
+        {
+          routingKey: 'report.status-changed',
+          message: {
+            eventId: crypto.randomUUID(),
+            eventType: 'report.status-changed',
+            version: 1,
+            occurredAt: inProgressAt,
+            correlationId: crypto.randomUUID(),
+            payload: {
+              reportId,
+              fromStatus: 'Assigned',
+              toStatus: 'In Progress',
+              changedBy: crypto.randomUUID(),
+              changedAt: inProgressAt
+            }
+          }
+        },
+        // 4: Resolved (latest timestamp)
+        {
+          routingKey: 'report.status-changed',
+          message: {
+            eventId: crypto.randomUUID(),
+            eventType: 'report.status-changed',
+            version: 1,
+            occurredAt: resolvedAt,
+            correlationId: crypto.randomUUID(),
+            payload: {
+              reportId,
+              fromStatus: 'In Progress',
+              toStatus: 'Resolved',
+              changedBy: crypto.randomUUID(),
+              changedAt: resolvedAt
+            }
+          }
+        }
+      ];
+
+      // Reorder by permutation and send concurrently
+      const shuffled = perm.map((idx) => events[idx]);
+      await Promise.all(
+        shuffled.map((e) =>
+          pub.send({ exchange: 'civic.events', routingKey: e.routingKey }, e.message)
+        )
+      );
+    }
+
+    // Assert that for ALL reports, the final converged status is 'Resolved' and resolved_at matches resolvedAt
+    for (let pIdx = 0; pIdx < permutations.length; pIdx++) {
+      const reportId = reportIds[pIdx];
+      const expectedResolvedAtMs = baseTime + pIdx * 10000000 + 4000000;
+
+      const row = await pollUntil(async () => {
+        const res = await rwPool.query<{
+          current_status: string;
+          category: string;
+          resolved_at: Date | null;
+        }>(
+          'SELECT current_status, category, resolved_at FROM report_index WHERE report_id = $1 AND current_status = $2 AND resolved_at IS NOT NULL AND category != $3',
+          [reportId, 'Resolved', 'unknown']
+        );
+        return res.rows.length > 0 ? res.rows[0] : null;
+      });
+
+      expect(row.current_status).toBe('Resolved');
+      expect(row.category).toBe('pothole');
+      expect(new Date(row.resolved_at!).getTime()).toBe(expectedResolvedAtMs);
+    }
+
+    // Verify summary counts match
+    const officerToken = await createJwt(crypto.randomUUID(), 'officer');
+    const res = await request(app.server)
+      .get('/api/v1/analytics/summary')
+      .set('Authorization', `Bearer ${officerToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.byStatus.Resolved).toBeGreaterThanOrEqual(permutations.length);
+    expect(res.body.byCategory.pothole).toBeGreaterThanOrEqual(permutations.length);
+
+    await consumers.stop();
+  });
+
+  it('handles status events arriving before report.submitted and counts unknown category honestly in summary', async () => {
+    const logger = createLogger({ serviceName: 'test-analytics-placeholder', level: 'silent' });
+    const validator = createEventValidator(config);
+    const consumers = createAnalyticsConsumers({
+      config,
+      pool: rwPool,
+      rabbitClient,
+      validator,
+      logger
+    });
+    await consumers.start();
+    activeConsumers.push(consumers);
+
+    const reportId = crypto.randomUUID();
+    const pub = rabbitClient.createPublisher({ confirms: true });
+
+    const statusChangedTime = new Date(Date.now() - 5000000).toISOString();
+
+    // 1. Send status event before report.submitted exists
+    await pub.send(
+      { exchange: 'civic.events', routingKey: 'report.status-changed' },
+      {
+        eventId: crypto.randomUUID(),
+        eventType: 'report.status-changed',
+        version: 1,
+        occurredAt: statusChangedTime,
+        correlationId: crypto.randomUUID(),
+        payload: {
+          reportId,
+          fromStatus: 'Assigned',
+          toStatus: 'In Progress',
+          changedBy: crypto.randomUUID(),
+          changedAt: statusChangedTime
+        }
+      }
+    );
+
+    // 2. Poll until placeholder row is present with category 'unknown'
+    const placeholderRow = await pollUntil(async () => {
+      const res = await rwPool.query<{
+        category: string;
+        current_status: string;
+      }>('SELECT category, current_status FROM report_index WHERE report_id = $1', [reportId]);
+      return res.rows.length > 0 ? res.rows[0] : null;
+    });
+
+    expect(placeholderRow.category).toBe('unknown');
+    expect(placeholderRow.current_status).toBe('In Progress');
+
+    // 3. Summary shows 'unknown' category count honestly
+    const officerToken = await createJwt(crypto.randomUUID(), 'officer');
+    const summaryBefore = await request(app.server)
+      .get('/api/v1/analytics/summary')
+      .set('Authorization', `Bearer ${officerToken}`);
+
+    expect(summaryBefore.status).toBe(200);
+    expect(summaryBefore.body.byCategory.unknown).toBeGreaterThanOrEqual(1);
+
+    // 4. Later, report.submitted lands
+    const submittedTime = new Date(Date.now() - 10000000).toISOString();
+    await pub.send(
+      { exchange: 'civic.events', routingKey: 'report.submitted' },
+      {
+        eventId: crypto.randomUUID(),
+        eventType: 'report.submitted',
+        version: 1,
+        occurredAt: submittedTime,
+        correlationId: crypto.randomUUID(),
+        payload: {
+          reportId,
+          reporterId: crypto.randomUUID(),
+          title: 'Streetlight out',
+          description: 'Dark corner',
+          category: 'streetlight',
+          location: { lat: 23.0, lng: 72.0 },
+          submittedAt: submittedTime
+        }
+      }
+    );
+
+    // 5. Poll until category transitions to 'streetlight' while keeping status 'In Progress'
+    const updatedRow = await pollUntil(async () => {
+      const res = await rwPool.query<{
+        category: string;
+        current_status: string;
+      }>(
+        'SELECT category, current_status FROM report_index WHERE report_id = $1 AND category = $2',
+        [reportId, 'streetlight']
+      );
+      return res.rows.length > 0 ? res.rows[0] : null;
+    });
+
+    expect(updatedRow.category).toBe('streetlight');
+    expect(updatedRow.current_status).toBe('In Progress'); // Must NOT be overwritten back to 'Submitted'
+
+    // 6. Summary now counts under 'streetlight'
+    const summaryAfter = await request(app.server)
+      .get('/api/v1/analytics/summary')
+      .set('Authorization', `Bearer ${officerToken}`);
+
+    expect(summaryAfter.status).toBe(200);
+    expect(summaryAfter.body.byCategory.streetlight).toBeGreaterThanOrEqual(1);
 
     await consumers.stop();
   });

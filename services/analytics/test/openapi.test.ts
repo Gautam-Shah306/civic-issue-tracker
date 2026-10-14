@@ -19,7 +19,7 @@ describe('OpenAPI Contract Drift Check', () => {
       JWT_PUBLIC_KEY_B64: keyB64
     });
 
-    const app = await buildApp(config, { pool: {} as any });
+    const app = await buildApp(config, { pool: {} as unknown as pg.Pool });
     await app.ready();
     const rawSpec = app.swagger();
     const generatedSpec = JSON.parse(JSON.stringify(rawSpec));

@@ -102,7 +102,12 @@ export async function buildApp(config: Config, deps: AppDependencies) {
     // Validation error
     const errObj = error as Record<string, unknown>;
     if (errObj && 'validation' in errObj && Array.isArray(errObj.validation)) {
-      const details = (errObj.validation as any[]).map((v: any) => ({
+      interface FastifyValidationItem {
+        instancePath?: string;
+        params?: { missingProperty?: string };
+        message?: string;
+      }
+      const details = (errObj.validation as FastifyValidationItem[]).map((v) => ({
         field: v.instancePath || v.params?.missingProperty || 'unknown',
         message: v.message || 'Validation failed'
       }));

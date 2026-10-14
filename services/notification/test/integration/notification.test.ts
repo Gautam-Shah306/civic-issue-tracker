@@ -255,6 +255,17 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
     ]);
     expect(Number(countRes.rows[0].count)).toBe(1);
 
+    // Deliver through sender: exactly ONE email sent
+    const mailer = createMailer(config);
+    const senderLoop = createSenderLoop({ config, pool, mailer, logger });
+    const sentCount = await senderLoop.processBatch();
+    expect(sentCount).toBe(1);
+
+    const sentRows = await pool.query('SELECT status FROM notifications WHERE event_id = $1', [
+      eventId
+    ]);
+    expect(sentRows.rows[0].status).toBe('sent');
+
     await consumers.stop();
   });
 
@@ -911,5 +922,67 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
     expect(callCount).toBeGreaterThanOrEqual(2);
 
     await consumers.stop();
+  });
+
+  it('pending rows older than the wait timeout are still sent when data is present', async () => {
+    const logger = createLogger({ serviceName: 'test-wait-timeout', level: 'silent' });
+    const mailer = createMailer(config);
+    const senderLoop = createSenderLoop({
+      config,
+      pool,
+      mailer,
+      logger
+    });
+
+    const notifId = crypto.randomUUID();
+    const userId = crypto.randomUUID();
+    const targetEmail = `old-pending-${notifId.slice(0, 6)}@testmail.local`;
+
+    // 1. Seed recipient data so data is present
+    await pool.query(
+      `INSERT INTO recipients (user_id, email, display_name, role) VALUES ($1, $2, $3, $4);`,
+      [userId, targetEmail, 'Old Pending User', 'citizen']
+    );
+
+    // 2. Insert notification row created 2 hours ago (older than SENDER_WAIT_TIMEOUT_SECONDS = 3600), with waiting_since NULL
+    await pool.query(
+      `INSERT INTO notifications (
+         id, event_id, kind, recipient_user_id, status, created_at, next_attempt_at, waiting_since
+       )
+       VALUES ($1, $2, 'welcome', $3, 'pending', clock_timestamp() - interval '2 hours', clock_timestamp(), NULL);`,
+      [notifId, crypto.randomUUID(), userId]
+    );
+
+    // 3. Process batch: since data is present, the row is SENT, NOT failed for age!
+    const sentCount = await senderLoop.processBatch();
+    expect(sentCount).toBe(1);
+
+    const rowRes = await pool.query<{ status: string; waiting_since: unknown }>(
+      'SELECT status, waiting_since FROM notifications WHERE id = $1',
+      [notifId]
+    );
+    expect(rowRes.rows[0].status).toBe('sent');
+    expect(rowRes.rows[0].waiting_since).toBeNull();
+
+    // 4. Test missing recipient data timeout: insert row with waiting_since set 2 hours ago
+    const missingNotifId = crypto.randomUUID();
+    const unknownUserId = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO notifications (
+         id, event_id, kind, recipient_user_id, status, created_at, next_attempt_at, waiting_since
+       )
+       VALUES ($1, $2, 'welcome', $3, 'pending', clock_timestamp() - interval '2 hours', clock_timestamp(), clock_timestamp() - interval '2 hours');`,
+      [missingNotifId, crypto.randomUUID(), unknownUserId]
+    );
+
+    const missingSent = await senderLoop.processBatch();
+    expect(missingSent).toBe(0);
+
+    const missingRowRes = await pool.query<{ status: string; last_error: string }>(
+      'SELECT status, last_error FROM notifications WHERE id = $1',
+      [missingNotifId]
+    );
+    expect(missingRowRes.rows[0].status).toBe('failed');
+    expect(missingRowRes.rows[0].last_error).toContain('waiting for recipient data timeout');
   });
 });
