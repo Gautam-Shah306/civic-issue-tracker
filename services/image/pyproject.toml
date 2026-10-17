@@ -8,7 +8,7 @@ dependencies = [
     "aio-pika==10.1.0",
     "boto3==1.43.107",
     "cryptography==50.0.2",
-    "fastapi==0.142.2",
+    "fastapi==0.143.0",
     "jsonschema==4.26.0",
     "pillow==12.3.0",
     "psycopg==3.3.6",
