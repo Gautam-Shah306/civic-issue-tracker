@@ -74,6 +74,8 @@ provision_service "auth" "${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD is required}" "fa
 provision_service "report" "${REPORT_DB_PASSWORD:?REPORT_DB_PASSWORD is required}" "true"
 provision_service "notification" "${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}" "false"
 provision_service "analytics" "${ANALYTICS_DB_PASSWORD:?ANALYTICS_DB_PASSWORD is required}" "false"
+provision_service "routing" "${ROUTING_DB_PASSWORD:?ROUTING_DB_PASSWORD is required}" "true"
+provision_service "image" "${IMAGE_DB_PASSWORD:?IMAGE_DB_PASSWORD is required}" "false"
 
 echo "Provisioning civic_analytics_rw role..."
 run_admin_sql -v rname="civic_analytics_rw" -v rpass="${ANALYTICS_RW_DB_PASSWORD:?ANALYTICS_RW_DB_PASSWORD is required}" <<'SQL'

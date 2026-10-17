@@ -16,7 +16,7 @@ if git ls-files | awk -F/ '($NF ~ /(\.env$|\.tfstate.*$|\.tfplan$|\.pem$|\.key$|
 fi
 
 # (ii-b) no tracked *.smoke.env file may contain a value longer than 80 characters
-for smoke_file in $(git ls-files '*.smoke.env' '**/*.smoke.env' 2>/dev/null | sort -u); do
+for smoke_file in $(git ls-files '*.smoke.env' '**/*.smoke.env' 2>/dev/null | uniq); do
   [ -e "$smoke_file" ] || continue
   awk -F= '
     /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=/ {
@@ -96,6 +96,40 @@ for pkg in $(git ls-files '**/package.json' 'package.json' 2>/dev/null); do
       echo "Violation: $pkg_dir/.npmrc missing ignore-scripts=true"
       ERRORS=1
     fi
+  fi
+done
+
+# (viii) every pyproject.toml has exact == pins for dependencies and dev dependencies
+# (ix) a uv.lock sits next to every pyproject.toml
+# (x) [tool.uv] exclude-newer must exist in every pyproject.toml
+for pyproj in $(git ls-files '**/pyproject.toml' 'pyproject.toml' 2>/dev/null; find services -name pyproject.toml 2>/dev/null); do
+  [ -e "$pyproj" ] || continue
+  pyproj_dir=$(dirname "$pyproj")
+
+  awk '
+    BEGIN { in_deps = 0; err = 0 }
+    /^[[:space:]]*(dependencies|dev)[[:space:]]*=[[:space:]]*\[/ { in_deps = 1; next }
+    in_deps && /^[[:space:]]*\]/ { in_deps = 0; next }
+    in_deps && /^[[:space:]]*"[^"]+"/ {
+      val = $0
+      sub(/^[[:space:]]*"/, "", val)
+      sub(/".*$/, "", val)
+      if (val !~ /==[[:space:]]*[0-9]/ || val ~ /[><~^]/) {
+        print FILENAME ":" NR ": Violation: non-exact == pin in " FILENAME " -> " $0
+        err = 1
+      }
+    }
+    END { exit err }
+  ' "$pyproj" || ERRORS=1
+
+  if [ ! -f "$pyproj_dir/uv.lock" ]; then
+    echo "Violation: Missing uv.lock in $pyproj_dir"
+    ERRORS=1
+  fi
+
+  if ! grep -q 'exclude-newer' "$pyproj"; then
+    echo "Violation: $pyproj missing exclude-newer in [tool.uv]"
+    ERRORS=1
   fi
 done
 

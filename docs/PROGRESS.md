@@ -7,10 +7,10 @@
 ## Status
 
 - **Current phase:** Phase 1, Walking skeleton (in progress)
-- **Last verified step:** Cycle 3c: analytics out-of-order stats guard, notification timeout rule, grouped Dependabot (D-043)
+- **Last verified step:** v1 cycle 4b: Image service + photo pipeline + verify-and-repair 4a (D-047)
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
 - **Cloud account:** not created (by design; created in Phase 5)
-- **Next action:** v1 cycle 4: Python base + Image + Routing
+- **Next action:** v1 cycle 5: Web Frontend + backend gaps
 
 ## v1 plan (D-039)
 
@@ -19,7 +19,7 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 - [x] Cycle 1: Auth (committed)
 - [x] Cycle 2: Gateway + Report (D-040)
 - [x] Cycle 3: Notification + Analytics & Audit (Phase 1 exit test verified (local), D-041, D-042)
-- [ ] Cycle 4: Python base + Image + Routing
+- [x] Cycle 4: Python base + Image + Routing (D-044, D-045, D-046, D-047)
 - [ ] Cycle 5: Web Frontend + backend gaps
 - [ ] Cycle 6: Local Kubernetes
 - [ ] Cycle 7: Pipeline and DevSecOps
@@ -105,3 +105,4 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 | 2026-10-13 | v1 cycle 3: Notification + Analytics & Audit (Phase 1 exit test verified) (D-041) | Verified |
 | 2026-10-14 | Cycle 3b: dependency repair and review fixes (D-042) | Phase 1 exit test verified (local) |
 | 2026-10-14 | Cycle 3c: analytics CI race fix, notification timeout rule, zero-lint, grouped Dependabot (D-043) | Verified |
+| 2026-10-14 | v1 cycle 4a: Python base + Routing + automatic assignment (D-044, D-045, D-046) | Verified |

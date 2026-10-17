@@ -513,9 +513,9 @@
         ]
       }
     },
-    "/api/v1/analytics/summary": {
+    "/api/v1/analytics/stats/summary": {
       "get": {
-        "description": "Returns aggregated report counts by status, category, open count, and average resolution time.",
+        "description": "Returns aggregated report counts by status, category, ward, department, open count, and average resolution time.",
         "responses": {
           "200": {
             "content": {
@@ -565,7 +565,261 @@
                           "type": "number"
                         }
                       },
+                      "byDepartment": {
+                        "def": {
+                          "keyType": {
+                            "def": {
+                              "type": "string"
+                            },
+                            "type": "string"
+                          },
+                          "type": "record",
+                          "valueType": {
+                            "def": {
+                              "checks": [],
+                              "type": "number"
+                            },
+                            "isFinite": true,
+                            "type": "number"
+                          }
+                        },
+                        "keyType": {
+                          "def": {
+                            "type": "string"
+                          },
+                          "type": "string"
+                        },
+                        "type": "record",
+                        "valueType": {
+                          "def": {
+                            "checks": [],
+                            "type": "number"
+                          },
+                          "isFinite": true,
+                          "type": "number"
+                        }
+                      },
                       "byStatus": {
+                        "def": {
+                          "keyType": {
+                            "def": {
+                              "type": "string"
+                            },
+                            "type": "string"
+                          },
+                          "type": "record",
+                          "valueType": {
+                            "def": {
+                              "checks": [],
+                              "type": "number"
+                            },
+                            "isFinite": true,
+                            "type": "number"
+                          }
+                        },
+                        "keyType": {
+                          "def": {
+                            "type": "string"
+                          },
+                          "type": "string"
+                        },
+                        "type": "record",
+                        "valueType": {
+                          "def": {
+                            "checks": [],
+                            "type": "number"
+                          },
+                          "isFinite": true,
+                          "type": "number"
+                        }
+                      },
+                      "byWard": {
+                        "def": {
+                          "keyType": {
+                            "def": {
+                              "type": "string"
+                            },
+                            "type": "string"
+                          },
+                          "type": "record",
+                          "valueType": {
+                            "def": {
+                              "checks": [],
+                              "type": "number"
+                            },
+                            "isFinite": true,
+                            "type": "number"
+                          }
+                        },
+                        "keyType": {
+                          "def": {
+                            "type": "string"
+                          },
+                          "type": "string"
+                        },
+                        "type": "record",
+                        "valueType": {
+                          "def": {
+                            "checks": [],
+                            "type": "number"
+                          },
+                          "isFinite": true,
+                          "type": "number"
+                        }
+                      },
+                      "openReports": {
+                        "def": {
+                          "checks": [],
+                          "type": "number"
+                        },
+                        "isFinite": true,
+                        "type": "number"
+                      },
+                      "totalReports": {
+                        "def": {
+                          "checks": [],
+                          "type": "number"
+                        },
+                        "isFinite": true,
+                        "type": "number"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Default Response"
+          }
+        },
+        "summary": "Get report summary metrics (alias)",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/api/v1/analytics/summary": {
+      "get": {
+        "description": "Returns aggregated report counts by status, category, ward, department, open count, and average resolution time.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "def": {
+                    "shape": {
+                      "averageResolutionHours": {
+                        "def": {
+                          "checks": [],
+                          "type": "number"
+                        },
+                        "isFinite": true,
+                        "type": "number"
+                      },
+                      "byCategory": {
+                        "def": {
+                          "keyType": {
+                            "def": {
+                              "type": "string"
+                            },
+                            "type": "string"
+                          },
+                          "type": "record",
+                          "valueType": {
+                            "def": {
+                              "checks": [],
+                              "type": "number"
+                            },
+                            "isFinite": true,
+                            "type": "number"
+                          }
+                        },
+                        "keyType": {
+                          "def": {
+                            "type": "string"
+                          },
+                          "type": "string"
+                        },
+                        "type": "record",
+                        "valueType": {
+                          "def": {
+                            "checks": [],
+                            "type": "number"
+                          },
+                          "isFinite": true,
+                          "type": "number"
+                        }
+                      },
+                      "byDepartment": {
+                        "def": {
+                          "keyType": {
+                            "def": {
+                              "type": "string"
+                            },
+                            "type": "string"
+                          },
+                          "type": "record",
+                          "valueType": {
+                            "def": {
+                              "checks": [],
+                              "type": "number"
+                            },
+                            "isFinite": true,
+                            "type": "number"
+                          }
+                        },
+                        "keyType": {
+                          "def": {
+                            "type": "string"
+                          },
+                          "type": "string"
+                        },
+                        "type": "record",
+                        "valueType": {
+                          "def": {
+                            "checks": [],
+                            "type": "number"
+                          },
+                          "isFinite": true,
+                          "type": "number"
+                        }
+                      },
+                      "byStatus": {
+                        "def": {
+                          "keyType": {
+                            "def": {
+                              "type": "string"
+                            },
+                            "type": "string"
+                          },
+                          "type": "record",
+                          "valueType": {
+                            "def": {
+                              "checks": [],
+                              "type": "number"
+                            },
+                            "isFinite": true,
+                            "type": "number"
+                          }
+                        },
+                        "keyType": {
+                          "def": {
+                            "type": "string"
+                          },
+                          "type": "string"
+                        },
+                        "type": "record",
+                        "valueType": {
+                          "def": {
+                            "checks": [],
+                            "type": "number"
+                          },
+                          "isFinite": true,
+                          "type": "number"
+                        }
+                      },
+                      "byWard": {
                         "def": {
                           "keyType": {
                             "def": {

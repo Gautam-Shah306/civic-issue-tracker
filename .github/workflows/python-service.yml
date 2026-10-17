@@ -1,0 +1,102 @@
+name: Python Service CI
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        required: true
+        type: string
+        description: "Path of service under services/ (e.g. _template-py, routing)"
+
+permissions: {}
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      SERVICE_PATH: services/${{ inputs.service }}
+      SERVICE_NAME: ${{ inputs.service }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        run: pip install --require-hashes -r .github/uv-requirements.txt
+
+      - name: Install dependencies
+        run: |
+          cd "$SERVICE_PATH"
+          uv sync --frozen
+
+      - name: Lint and format check
+        run: |
+          cd "$SERVICE_PATH"
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Test with coverage
+        run: |
+          cd "$SERVICE_PATH"
+          uv run pytest --cov=app --cov-report=term --cov-fail-under=60
+
+      - name: Build container image
+        run: |
+          if [ "${SERVICE_NAME}" = "_template-py" ]; then
+            IMAGE_TAG="civic/service-template-py:ci"
+          else
+            IMAGE_TAG="civic/${SERVICE_NAME}:ci"
+          fi
+          docker build -f "services/${SERVICE_NAME}/Dockerfile" --build-arg SERVICE="${SERVICE_NAME}" -t "$IMAGE_TAG" .
+
+      - name: Generate smoke test key
+        run: |
+          PRIV_PEM=$(openssl genpkey -algorithm ED25519)
+          PUB_PEM=$(echo "$PRIV_PEM" | openssl pkey -pubout)
+          PRIV_KEY=$(echo "$PRIV_PEM" | base64 -w0)
+          PUB_KEY=$(echo "$PUB_PEM" | base64 -w0)
+          echo "::add-mask::$PRIV_KEY"
+          echo "::add-mask::$PUB_KEY"
+          echo "JWT_PRIVATE_KEY_B64=$PRIV_KEY" >> "$GITHUB_ENV"
+          echo "JWT_PUBLIC_KEY_B64=$PUB_KEY" >> "$GITHUB_ENV"
+
+      - name: Smoke test container image
+        run: |
+          if [ "${SERVICE_NAME}" = "_template-py" ]; then
+            IMAGE_TAG="civic/service-template-py:ci"
+          else
+            IMAGE_TAG="civic/${SERVICE_NAME}:ci"
+          fi
+          CONTAINER_NAME="ci-test-${SERVICE_NAME}"
+          ENV_FILE_ARG=""
+          if [ -f "services/${SERVICE_NAME}/ci.smoke.env" ]; then
+            ENV_FILE_ARG="--env-file services/${SERVICE_NAME}/ci.smoke.env"
+          fi
+          docker run -d --name "$CONTAINER_NAME" $ENV_FILE_ARG -e JWT_PRIVATE_KEY_B64 -e JWT_PUBLIC_KEY_B64 -p 8000:8000 "$IMAGE_TAG"
+          
+          echo "Polling /healthz..."
+          SUCCESS=0
+          for i in $(seq 1 30); do
+            if curl -fs http://127.0.0.1:8000/healthz > /dev/null 2>&1; then
+              echo "Healthcheck passed on attempt $i"
+              SUCCESS=1
+              break
+            fi
+            sleep 1
+          done
+          
+          docker logs "$CONTAINER_NAME" || true
+          docker rm -f "$CONTAINER_NAME" || true
+          
+          if [ $SUCCESS -ne 1 ]; then
+            echo "Smoke test failed: /healthz did not respond within 30s"
+            exit 1
+          fi

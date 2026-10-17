@@ -45,7 +45,8 @@ const createReportBodySchema = z.object({
       .min(-180, 'Longitude must be between -180 and 180')
       .max(180, 'Longitude must be between -180 and 180'),
     address: z.string().max(300).optional()
-  })
+  }),
+  photoIds: z.array(z.string().uuid()).max(1, 'At most 1 photo is allowed').optional()
 });
 
 const updateStatusBodySchema = z.object({
@@ -90,7 +91,7 @@ export const reportsRoutes: FastifyPluginAsync<ReportsRouteOptions> = async (fas
     },
     async (request, reply) => {
       const user = request.user!;
-      const { title, description, category, location } = request.body;
+      const { title, description, category, location, photoIds } = request.body;
       const idempotencyKey = (request.headers['idempotency-key'] as string | undefined)?.trim();
 
       const client = await pool.connect();
@@ -108,12 +109,30 @@ export const reportsRoutes: FastifyPluginAsync<ReportsRouteOptions> = async (fas
             const existingReportId = idempRes.rows[0].report_id;
             const repRes = await client.query(
               `SELECT id, reporter_id as "reporterId", title, description, category_slug as category,
-                      lat, lng, address, status, version, created_at as "createdAt", updated_at as "updatedAt"
+                      lat, lng, address, status, version, ward_code as "wardCode", department_code as "departmentCode",
+                      created_at as "createdAt", updated_at as "updatedAt"
                FROM reports WHERE id = $1`,
               [existingReportId]
             );
+
+            const photosRes = await client.query(
+              `SELECT image_id as "imageId", width, height
+               FROM report_photos WHERE report_id = $1 AND status = 'ready' ORDER BY created_at ASC`,
+              [existingReportId]
+            );
+            const photos = photosRes.rows.map((r) => ({
+              imageId: r.imageId,
+              width: r.width,
+              height: r.height,
+              thumbnailUrl: `/api/v1/images/${r.imageId}/thumbnail`,
+              url: `/api/v1/images/${r.imageId}/file`
+            }));
+
             await client.query('COMMIT');
-            return reply.status(201).send(repRes.rows[0]);
+            return reply.status(201).send({
+              ...repRes.rows[0],
+              photos
+            });
           }
         }
 
@@ -140,7 +159,8 @@ export const reportsRoutes: FastifyPluginAsync<ReportsRouteOptions> = async (fas
           `INSERT INTO reports (id, reporter_id, title, description, category_slug, lat, lng, address, status, version, created_at, updated_at)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Submitted', 1, $9, $9)
            RETURNING id, reporter_id as "reporterId", title, description, category_slug as category,
-                     lat, lng, address, status, version, created_at as "createdAt", updated_at as "updatedAt"`,
+                     lat, lng, address, status, version, ward_code as "wardCode", department_code as "departmentCode",
+                     created_at as "createdAt", updated_at as "updatedAt"`,
           [
             reportId,
             user.id,
@@ -172,10 +192,67 @@ export const reportsRoutes: FastifyPluginAsync<ReportsRouteOptions> = async (fas
           );
         }
 
-        // 4. Validate and stage domain event report.submitted
+        // 4. Record photo attachments if provided
+        const initialPhotos: Array<{
+          imageId: string;
+          width: number | null;
+          height: number | null;
+          thumbnailUrl: string;
+          url: string;
+        }> = [];
+
+        if (photoIds && photoIds.length > 0) {
+          for (const photoId of photoIds) {
+            const seenRes = await client.query(
+              `SELECT owner_id as "ownerId", status, width, height, gps_present as "gpsPresent",
+                      reject_reason as "rejectReason"
+               FROM images_seen WHERE image_id = $1`,
+              [photoId]
+            );
+
+            if (seenRes.rows.length > 0) {
+              const s = seenRes.rows[0];
+              const isMismatch = s.ownerId && s.ownerId !== user.id;
+              const statusToSet = isMismatch ? 'rejected' : s.status;
+              const reasonToSet = isMismatch ? 'ownership_mismatch' : s.rejectReason;
+
+              await client.query(
+                `INSERT INTO report_photos (report_id, image_id, status, width, height, gps_present, reject_reason, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)`,
+                [reportId, photoId, statusToSet, s.width, s.height, s.gpsPresent, reasonToSet, now]
+              );
+              if (statusToSet === 'ready') {
+                initialPhotos.push({
+                  imageId: photoId,
+                  width: s.width,
+                  height: s.height,
+                  thumbnailUrl: `/api/v1/images/${photoId}/thumbnail`,
+                  url: `/api/v1/images/${photoId}/file`
+                });
+              }
+            } else {
+              await client.query(
+                `INSERT INTO report_photos (report_id, image_id, status, created_at, updated_at)
+                 VALUES ($1, $2, 'pending', $3, $3)`,
+                [reportId, photoId, now]
+              );
+            }
+          }
+        }
+
+        // 5. Validate and stage domain event report.submitted
         const eventId = randomUUID();
         const occurredAt = now.toISOString();
-        const payload = {
+        const payload: {
+          reportId: string;
+          reporterId: string;
+          title: string;
+          description: string;
+          category: string;
+          location: { lat: number; lng: number; address?: string };
+          photoIds?: string[];
+          submittedAt: string;
+        } = {
           reportId: createdReport.id,
           reporterId: user.id,
           title: createdReport.title,
@@ -186,6 +263,7 @@ export const reportsRoutes: FastifyPluginAsync<ReportsRouteOptions> = async (fas
             lng: createdReport.lng,
             ...(address ? { address } : {})
           },
+          ...(photoIds && photoIds.length > 0 ? { photoIds } : {}),
           submittedAt: occurredAt
         };
 
@@ -200,7 +278,7 @@ export const reportsRoutes: FastifyPluginAsync<ReportsRouteOptions> = async (fas
 
         eventValidator.validateEvent('report.submitted', eventEnvelope);
 
-        // 5. Insert outbox row
+        // 6. Insert outbox row
         await client.query(
           `INSERT INTO outbox_events (event_id, event_type, version, correlation_id, payload, occurred_at)
            VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -216,7 +294,10 @@ export const reportsRoutes: FastifyPluginAsync<ReportsRouteOptions> = async (fas
 
         await client.query('COMMIT');
 
-        return reply.status(201).send(createdReport);
+        return reply.status(201).send({
+          ...createdReport,
+          photos: initialPhotos
+        });
       } catch (err) {
         await client.query('ROLLBACK').catch(() => {});
         throw err;
@@ -258,7 +339,8 @@ export const reportsRoutes: FastifyPluginAsync<ReportsRouteOptions> = async (fas
 
       const itemsRes = await pool.query(
         `SELECT id, reporter_id as "reporterId", title, description, category_slug as category,
-                lat, lng, address, status, version, created_at as "createdAt", updated_at as "updatedAt"
+                lat, lng, address, status, version, ward_code as "wardCode", department_code as "departmentCode",
+                created_at as "createdAt", updated_at as "updatedAt"
          FROM reports
          ${whereClause}
          ORDER BY ${orderSql}
@@ -332,7 +414,8 @@ export const reportsRoutes: FastifyPluginAsync<ReportsRouteOptions> = async (fas
 
       const itemsRes = await pool.query(
         `SELECT id, reporter_id as "reporterId", title, description, category_slug as category,
-                lat, lng, address, status, version, created_at as "createdAt", updated_at as "updatedAt"
+                lat, lng, address, status, version, ward_code as "wardCode", department_code as "departmentCode",
+                created_at as "createdAt", updated_at as "updatedAt"
          FROM reports
          ${whereClause}
          ORDER BY ${orderSql}
@@ -366,7 +449,8 @@ export const reportsRoutes: FastifyPluginAsync<ReportsRouteOptions> = async (fas
 
       const reportRes = await pool.query(
         `SELECT id, reporter_id as "reporterId", title, description, category_slug as category,
-                lat, lng, address, status, version, created_at as "createdAt", updated_at as "updatedAt"
+                lat, lng, address, status, version, ward_code as "wardCode", department_code as "departmentCode",
+                created_at as "createdAt", updated_at as "updatedAt"
          FROM reports WHERE id = $1`,
         [id]
       );
@@ -399,8 +483,25 @@ export const reportsRoutes: FastifyPluginAsync<ReportsRouteOptions> = async (fas
         [id]
       );
 
+      const photosRes = await pool.query(
+        `SELECT image_id as "imageId", width, height
+         FROM report_photos
+         WHERE report_id = $1 AND status = 'ready'
+         ORDER BY created_at ASC`,
+        [id]
+      );
+
+      const photos = photosRes.rows.map((r) => ({
+        imageId: r.imageId,
+        width: r.width,
+        height: r.height,
+        thumbnailUrl: `/api/v1/images/${r.imageId}/thumbnail`,
+        url: `/api/v1/images/${r.imageId}/file`
+      }));
+
       return reply.send({
         ...report,
+        photos,
         history: historyRes.rows
       });
     }
@@ -486,7 +587,8 @@ export const reportsRoutes: FastifyPluginAsync<ReportsRouteOptions> = async (fas
            SET status = $1, version = $2, updated_at = $3
            WHERE id = $4
            RETURNING id, reporter_id as "reporterId", title, description, category_slug as category,
-                     lat, lng, address, status, version, created_at as "createdAt", updated_at as "updatedAt"`,
+                     lat, lng, address, status, version, ward_code as "wardCode", department_code as "departmentCode",
+                     created_at as "createdAt", updated_at as "updatedAt"`,
           [toStatus, newVersion, now, id]
         );
         const updatedReport = updateRes.rows[0];

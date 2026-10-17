@@ -73,6 +73,14 @@
                 }
               }
             },
+            "photoIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "maxItems": 1
+            },
             "submittedAt": {
               "type": "string",
               "format": "date-time"

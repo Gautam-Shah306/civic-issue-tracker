@@ -35,6 +35,9 @@ export function createSenderLoop(options: SenderLoopOptions): SenderLoop {
       event_id: string;
       kind: string;
       recipient_user_id: string | null;
+      recipient_email: string | null;
+      subject: string | null;
+      body: string | null;
       report_id: string | null;
       data: unknown;
       attempts: number;
@@ -50,13 +53,16 @@ export function createSenderLoop(options: SenderLoopOptions): SenderLoop {
         event_id: string;
         kind: string;
         recipient_user_id: string | null;
+        recipient_email: string | null;
+        subject: string | null;
+        body: string | null;
         report_id: string | null;
         data: unknown;
         attempts: number;
         created_at: Date;
         waiting_since: Date | null;
       }>(
-        `SELECT id, event_id, kind, recipient_user_id, report_id, data, attempts, created_at, waiting_since
+        `SELECT id, event_id, kind, recipient_user_id, recipient_email, subject, body, report_id, data, attempts, created_at, waiting_since
          FROM notifications
          WHERE status = 'pending' AND next_attempt_at <= clock_timestamp()
          ORDER BY created_at ASC
@@ -100,32 +106,39 @@ export function createSenderLoop(options: SenderLoopOptions): SenderLoop {
       let recipientEmail: string | null = null;
       let recipientDisplayName: string | null = null;
 
-      if (row.report_id) {
-        const repRes = await pool.query<{ reporter_id: string; title: string }>(
-          `SELECT reporter_id, title FROM report_index WHERE report_id = $1;`,
-          [row.report_id]
-        );
-        if (repRes.rows.length > 0) {
-          reportTitle = repRes.rows[0].title;
-          if (!recipientUserId) {
-            recipientUserId = repRes.rows[0].reporter_id;
+      if (row.kind === 'assignment') {
+        recipientEmail = row.recipient_email;
+        recipientDisplayName = 'Department';
+      } else {
+        if (row.report_id) {
+          const repRes = await pool.query<{ reporter_id: string; title: string }>(
+            `SELECT reporter_id, title FROM report_index WHERE report_id = $1;`,
+            [row.report_id]
+          );
+          if (repRes.rows.length > 0) {
+            reportTitle = repRes.rows[0].title;
+            if (!recipientUserId) {
+              recipientUserId = repRes.rows[0].reporter_id;
+            }
+          }
+        }
+
+        if (recipientUserId) {
+          const recRes = await pool.query<{ email: string; display_name: string }>(
+            `SELECT email, display_name FROM recipients WHERE user_id = $1;`,
+            [recipientUserId]
+          );
+          if (recRes.rows.length > 0) {
+            recipientEmail = recRes.rows[0].email;
+            recipientDisplayName = recRes.rows[0].display_name;
           }
         }
       }
 
-      if (recipientUserId) {
-        const recRes = await pool.query<{ email: string; display_name: string }>(
-          `SELECT email, display_name FROM recipients WHERE user_id = $1;`,
-          [recipientUserId]
-        );
-        if (recRes.rows.length > 0) {
-          recipientEmail = recRes.rows[0].email;
-          recipientDisplayName = recRes.rows[0].display_name;
-        }
-      }
-
       const isDataMissing =
-        !recipientEmail || !recipientDisplayName || (row.kind !== 'welcome' && !reportTitle);
+        row.kind === 'assignment'
+          ? !recipientEmail
+          : !recipientEmail || !recipientDisplayName || (row.kind !== 'welcome' && !reportTitle);
 
       if (isDataMissing) {
         // If row was already waiting, check if waiting time exceeded timeout
@@ -173,7 +186,10 @@ export function createSenderLoop(options: SenderLoopOptions): SenderLoop {
           ? JSON.parse(row.data)
           : (row.data as Record<string, unknown> | null);
 
-      if (row.kind === 'welcome') {
+      if (row.kind === 'assignment') {
+        emailSubject = row.subject || 'Assignment Notification';
+        emailBody = row.body || 'A new civic issue has been assigned to your department.';
+      } else if (row.kind === 'welcome') {
         const rendered = renderWelcomeEmail(recipientDisplayName!);
         emailSubject = rendered.subject;
         emailBody = rendered.text;

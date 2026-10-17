@@ -489,6 +489,57 @@
                       },
                       "type": "object"
                     },
+                    "photoIds": {
+                      "def": {
+                        "innerType": {
+                          "def": {
+                            "checks": [
+                              {}
+                            ],
+                            "element": {
+                              "def": {
+                                "checks": [
+                                  {
+                                    "def": {
+                                      "abort": false,
+                                      "check": "string_format",
+                                      "format": "uuid",
+                                      "pattern": {},
+                                      "type": "string"
+                                    },
+                                    "type": "string"
+                                  }
+                                ],
+                                "type": "string"
+                              },
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "element": {
+                            "def": {
+                              "checks": [
+                                {
+                                  "def": {
+                                    "abort": false,
+                                    "check": "string_format",
+                                    "format": "uuid",
+                                    "pattern": {},
+                                    "type": "string"
+                                  },
+                                  "type": "string"
+                                }
+                              ],
+                              "type": "string"
+                            },
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "type": "optional"
+                      },
+                      "type": "optional"
+                    },
                     "title": {
                       "def": {
                         "checks": [

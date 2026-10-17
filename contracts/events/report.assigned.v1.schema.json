@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civic-issue-tracker.local/contracts/events/report.assigned.v1.schema.json",
+  "title": "ReportAssignedV1",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "envelope.v1.schema.json"
+    },
+    {
+      "properties": {
+        "eventType": {
+          "const": "report.assigned"
+        },
+        "version": {
+          "const": 1
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reportId",
+            "wardCode",
+            "departmentCode",
+            "departmentName",
+            "departmentEmail",
+            "source",
+            "assignedAt"
+          ],
+          "properties": {
+            "reportId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "wardCode": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "departmentCode": {
+              "type": "string"
+            },
+            "departmentName": {
+              "type": "string"
+            },
+            "departmentEmail": {
+              "type": "string",
+              "format": "email"
+            },
+            "source": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "manual"
+              ]
+            },
+            "assignedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

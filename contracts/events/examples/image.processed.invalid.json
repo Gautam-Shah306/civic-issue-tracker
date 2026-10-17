@@ -1,0 +1,17 @@
+{
+  "eventId": "22222222-3333-4444-8555-666666666666",
+  "eventType": "image.processed",
+  "version": 1,
+  "occurredAt": "2026-10-16T10:00:00.000Z",
+  "correlationId": "77777777-8888-4999-a000-111111111111",
+  "payload": {
+    "imageId": "not-a-uuid",
+    "ownerId": "c3d4e5f6-a1b2-4c3d-ae4f-5a6b7c8d9e0f",
+    "status": "invalid_status",
+    "width": 1200,
+    "height": 800,
+    "gpsPresent": true,
+    "rejectReason": null,
+    "processedAt": "2026-10-16T10:00:00.000Z"
+  }
+}

@@ -83,16 +83,18 @@ describe('Gateway JWT Verifier', () => {
   it('enforces role policies with requireRole', async () => {
     const guard = verifier.requireRole(['officer', 'admin']);
 
-    const reqMock1: any = {
-      headers: {},
-      user: { id: 'u1', role: 'citizen' }
-    };
-    await expect(guard(reqMock1, {} as any)).rejects.toThrow(AppError);
+    const replyMock = {} as unknown as FastifyReply;
 
-    const reqMock2: any = {
+    const reqMock1 = {
       headers: {},
-      user: { id: 'u2', role: 'officer' }
-    };
-    await expect(guard(reqMock2, {} as any)).resolves.toBeUndefined();
+      user: { id: 'u1', role: 'citizen' as const }
+    } as unknown as FastifyRequest;
+    await expect(guard(reqMock1, replyMock)).rejects.toThrow(AppError);
+
+    const reqMock2 = {
+      headers: {},
+      user: { id: 'u2', role: 'officer' as const }
+    } as unknown as FastifyRequest;
+    await expect(guard(reqMock2, replyMock)).resolves.toBeUndefined();
   });
 });

@@ -22,6 +22,7 @@ const configSchema = z.object({
   JWT_ISSUER: z.string().default('civic-auth'),
   JWT_AUDIENCE: z.string().default('civic-api'),
   OUTBOX_INTERVAL_MS: z.coerce.number().int().positive().default(500),
+  DELIVERY_LIMIT: z.coerce.number().int().positive().default(5),
   CONTRACTS_DIR: z.string().default(resolveDefaultContractsDir())
 });
 

@@ -1,0 +1,7 @@
+*
+!services/_template-py
+!services/_template-py/**
+!contracts/events/*.schema.json
+services/_template-py/.venv
+services/_template-py/__pycache__
+services/_template-py/.pytest_cache

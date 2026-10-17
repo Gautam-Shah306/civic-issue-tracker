@@ -15,6 +15,9 @@
       "lng": 77.5946,
       "address": "123 Main Street, Ward 4"
     },
+    "photoIds": [
+      "dddddddd-eeee-4fff-8aaa-bbbbbbbbbbbb"
+    ],
     "submittedAt": "2026-10-12T12:05:00.000Z"
   }
 }

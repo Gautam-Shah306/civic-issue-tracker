@@ -1,0 +1,19 @@
+{
+  "eventId": "11111111-2222-4333-8444-555555555555",
+  "eventType": "report.submitted",
+  "version": 1,
+  "correlationId": "66666666-7777-4888-9999-000000000000",
+  "payload": {
+    "reportId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "reporterId": "c3d4e5f6-a1b2-4c3d-ae4f-5a6b7c8d9e0f",
+    "title": "Broken street light on Main Street",
+    "description": "Street light has been flickering and completely turned off since last night.",
+    "category": "street-lighting",
+    "location": {
+      "lat": 12.9716,
+      "lng": 77.5946,
+      "address": "123 Main Street, Ward 4"
+    },
+    "submittedAt": "2026-10-12T12:05:00.000Z"
+  }
+}

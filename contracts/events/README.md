@@ -85,12 +85,60 @@ Each consumer service declares one quorum queue per business event flow that it 
    - Dead-letter exchange: `x-dead-letter-exchange: civic.dlx`
    - Dead-letter routing key: `notification.report-status-changed.dlq`
    - Delivery limit: `x-delivery-limit: 5`
+4. **`notification.report-assigned`**
+   - Type: `quorum` (`x-queue-type: quorum`)
+   - Durability: `durable: true`
+   - Bound to: `civic.events` with routing key `report.assigned`
+   - Dead-letter exchange: `x-dead-letter-exchange: civic.dlx`
+   - Dead-letter routing key: `notification.report-assigned.dlq`
+   - Delivery limit: `x-delivery-limit: 5`
+5. **`routing.report-submitted`**
+   - Type: `quorum` (`x-queue-type: quorum`)
+   - Durability: `durable: true`
+   - Bound to: `civic.events` with routing key `report.submitted`
+   - Dead-letter exchange: `x-dead-letter-exchange: civic.dlx`
+   - Dead-letter routing key: `routing.report-submitted.dlq`
+   - Delivery limit: `x-delivery-limit: 5`
+6. **`report.report-assigned`**
+   - Type: `quorum` (`x-queue-type: quorum`)
+   - Durability: `durable: true`
+   - Bound to: `civic.events` with routing key `report.assigned`
+   - Dead-letter exchange: `x-dead-letter-exchange: civic.dlx`
+   - Dead-letter routing key: `report.report-assigned.dlq`
+   - Delivery limit: `x-delivery-limit: 5`
+7. **`report.category-upserted`**
+   - Type: `quorum` (`x-queue-type: quorum`)
+   - Durability: `durable: true`
+   - Bound to: `civic.events` with routing key `category.upserted`
+   - Dead-letter exchange: `x-dead-letter-exchange: civic.dlx`
+   - Dead-letter routing key: `report.category-upserted.dlq`
+   - Delivery limit: `x-delivery-limit: 5`
+8. **`analytics.stats`**
+   - Type: `quorum` (`x-queue-type: quorum`)
+   - Durability: `durable: true`
+   - Bound to: `civic.events` with routing keys `report.submitted`, `report.status-changed`, and `report.assigned`
+   - Dead-letter exchange: `x-dead-letter-exchange: civic.dlx`
+   - Dead-letter routing key: `analytics.stats.dlq`
+   - Delivery limit: `x-delivery-limit: 5`
+9. **`report.image-processed`**
+   - Type: `quorum` (`x-queue-type: quorum`)
+   - Durability: `durable: true`
+   - Bound to: `civic.events` with routing key `image.processed`
+   - Dead-letter exchange: `x-dead-letter-exchange: civic.dlx`
+   - Dead-letter routing key: `report.image-processed.dlq`
+   - Delivery limit: `x-delivery-limit: 5`
 
 ### Dead-Letter Queues (DLQ)
 For each quorum queue, a corresponding dead-letter queue is declared:
 - `notification.user-created.dlq` bound to `civic.dlx` with routing key `notification.user-created.dlq`.
 - `notification.report-submitted.dlq` bound to `civic.dlx` with routing key `notification.report-submitted.dlq`.
 - `notification.report-status-changed.dlq` bound to `civic.dlx` with routing key `notification.report-status-changed.dlq`.
+- `notification.report-assigned.dlq` bound to `civic.dlx` with routing key `notification.report-assigned.dlq`.
+- `routing.report-submitted.dlq` bound to `civic.dlx` with routing key `routing.report-submitted.dlq`.
+- `report.report-assigned.dlq` bound to `civic.dlx` with routing key `report.report-assigned.dlq`.
+- `report.category-upserted.dlq` bound to `civic.dlx` with routing key `report.category-upserted.dlq`.
+- `report.image-processed.dlq` bound to `civic.dlx` with routing key `report.image-processed.dlq`.
+- `analytics.stats.dlq` bound to `civic.dlx` with routing key `analytics.stats.dlq`.
 
 ### Broker Behavior & Reliability Controls
 - **Publisher Confirms:** All publishers enable publisher confirms. A message is considered published only once the broker acknowledges receipt.

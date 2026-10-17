@@ -1,4 +1,10 @@
-import { FastifyInstance } from 'fastify';
+import {
+  FastifyInstance,
+  RawServerDefault,
+  RawRequestDefaultExpression,
+  RawReplyDefaultExpression
+} from 'fastify';
+import type { Logger } from 'pino';
 import rateLimit from '@fastify/rate-limit';
 import { Redis } from 'ioredis';
 import { formatProblemDetails } from '../errors.js';
@@ -10,7 +16,12 @@ export interface RateLimiterOptions {
 }
 
 export async function registerRateLimiter(
-  app: FastifyInstance<any, any, any, any>,
+  app: FastifyInstance<
+    RawServerDefault,
+    RawRequestDefaultExpression,
+    RawReplyDefaultExpression,
+    Logger
+  >,
   options: RateLimiterOptions
 ) {
   const { config, redis } = options;

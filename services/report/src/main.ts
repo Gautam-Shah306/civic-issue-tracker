@@ -4,6 +4,8 @@ import { loadConfig } from './config.js';
 import { createLogger } from './logger.js';
 import { buildApp } from './app.js';
 import { createOutboxRelay } from './outbox/relay.js';
+import { createReportConsumers } from './events/consumers.js';
+import { createEventValidator } from './events/validator.js';
 
 const config = loadConfig();
 const logger = createLogger({
@@ -34,11 +36,21 @@ rabbit.on('error', (err) => {
   logger.error({ err }, 'RabbitMQ connection error');
 });
 
+const validator = createEventValidator(config);
+
 const outboxRelay = createOutboxRelay({
   config,
   pool,
   logger,
   rabbitmqConnection: rabbit
+});
+
+const consumers = createReportConsumers({
+  config,
+  pool,
+  rabbitClient: rabbit,
+  validator,
+  logger
 });
 
 async function main() {
@@ -56,8 +68,13 @@ async function main() {
     process.exit(1);
   }
 
-  // Start outbox relay in background
+  // Start outbox relay and consumers in background
   outboxRelay.start();
+  try {
+    await consumers.start();
+  } catch (err) {
+    logger.error({ err }, 'Failed to start report consumers');
+  }
 
   // Background connection verification with exponential backoff (1s to 30s)
   async function monitorDependencies() {
@@ -91,6 +108,7 @@ async function main() {
     }, 10000);
 
     try {
+      await consumers.stop();
       await outboxRelay.stop();
       await app.close();
       await pool.end();

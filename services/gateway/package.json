@@ -10,7 +10,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint --max-warnings 0 .",
     "format:check": "prettier --check .",
     "test": "vitest run",
     "start": "node dist/main.js"

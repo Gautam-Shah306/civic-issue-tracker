@@ -44,6 +44,23 @@ export async function buildApp(config: Config, deps: AppDependencies = {}) {
   // 3. Upstream Reverse Proxy (reply-from)
   await app.register(replyFrom);
 
+  // Passthrough content type parser for binary & multipart uploads
+  const rawBodyOpts = { parseAs: 'buffer' as const, bodyLimit: 9437184 };
+  const rawBodyParser = (
+    _request: FastifyRequest,
+    body: Buffer,
+    done: (err: Error | null, body?: Buffer) => void
+  ) => {
+    done(null, body);
+  };
+  app.addContentTypeParser(
+    ['application/octet-stream', 'multipart/form-data'],
+    rawBodyOpts,
+    rawBodyParser
+  );
+  app.addContentTypeParser(/^multipart\//, rawBodyOpts, rawBodyParser);
+  app.addContentTypeParser(/^image\//, rawBodyOpts, rawBodyParser);
+
   // 4. Inbound Header Hygiene & Correlation ID
   app.addHook('onRequest', async (request, reply) => {
     // Strip client-supplied user headers to prevent identity spoofing
@@ -203,8 +220,13 @@ export async function buildApp(config: Config, deps: AppDependencies = {}) {
   function proxyTo(targetBaseUrl: string) {
     return (request: FastifyRequest, reply: FastifyReply) => {
       const upstreamUrl = `${targetBaseUrl}${request.raw.url}`;
+      const rawContentType = request.headers['content-type'];
+      const isMultipart =
+        typeof rawContentType === 'string' && rawContentType.startsWith('multipart/');
       return reply.from(upstreamUrl, {
-        timeout: 10000,
+        timeout: config.UPSTREAM_TIMEOUT_MS,
+        body: isMultipart && Buffer.isBuffer(request.body) ? request.body : undefined,
+        contentType: isMultipart ? rawContentType : undefined,
         onError(errReply, { error }) {
           const errMsg = error.message.toLowerCase();
           const errCode = (error as { code?: string }).code;
@@ -295,6 +317,34 @@ export async function buildApp(config: Config, deps: AppDependencies = {}) {
     '/api/v1/analytics/*',
     { preHandler: [jwtVerifier.requireAuth] },
     proxyTo(config.ANALYTICS_URL)
+  );
+
+  // Routing Service - Public
+  app.get('/api/v1/routing/wards', proxyTo(config.ROUTING_URL));
+  app.get('/api/v1/routing/departments', proxyTo(config.ROUTING_URL));
+  app.get('/api/v1/routing/categories', proxyTo(config.ROUTING_URL));
+
+  // Routing Service - Authenticated
+  app.all(
+    '/api/v1/routing/*',
+    { preHandler: [jwtVerifier.requireAuth] },
+    proxyTo(config.ROUTING_URL)
+  );
+
+  // Image Service - Capability URLs (Public)
+  app.get('/api/v1/images/:imageId/thumbnail', proxyTo(config.IMAGE_URL));
+  app.get('/api/v1/images/:imageId/file', proxyTo(config.IMAGE_URL));
+
+  // Image Service - Authenticated
+  app.post(
+    '/api/v1/images',
+    { bodyLimit: 9437184, preHandler: [jwtVerifier.requireAuth] },
+    proxyTo(config.IMAGE_URL)
+  );
+  app.get(
+    '/api/v1/images/:imageId',
+    { preHandler: [jwtVerifier.requireAuth] },
+    proxyTo(config.IMAGE_URL)
   );
 
   return app;

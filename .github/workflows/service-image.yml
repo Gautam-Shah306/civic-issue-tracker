@@ -1,0 +1,26 @@
+name: Image Service CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/image/**'
+      - '.github/workflows/python-service.yml'
+      - 'contracts/**'
+  pull_request:
+    paths:
+      - 'services/image/**'
+      - '.github/workflows/python-service.yml'
+      - 'contracts/**'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  test-image:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/python-service.yml
+    with:
+      service: image

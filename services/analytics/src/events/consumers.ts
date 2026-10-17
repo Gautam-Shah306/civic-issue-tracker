@@ -85,6 +85,11 @@ export function createAnalyticsConsumers(options: {
       exchange: 'civic.events',
       routingKey: 'report.status-changed'
     });
+    await rabbitClient.queueBind({
+      queue: 'analytics.stats',
+      exchange: 'civic.events',
+      routingKey: 'report.assigned'
+    });
   }
 
   async function handleAuditMessage(msg: AsyncMessage): Promise<ConsumerStatus> {
@@ -277,6 +282,28 @@ export function createAnalyticsConsumers(options: {
            WHERE report_index.last_event_at IS NULL OR EXCLUDED.last_event_at > report_index.last_event_at;`,
           [p.reportId, p.toStatus, changedAt, resolvedAt]
         );
+      } else if (data.eventType === 'report.assigned') {
+        const p = data.payload as {
+          reportId: string;
+          wardCode?: string | null;
+          departmentCode: string;
+          assignedAt?: string;
+        };
+        const assignedAt = p.assignedAt || data.occurredAt;
+
+        await client.query(
+          `INSERT INTO report_index (
+             report_id, category, current_status, created_at, resolved_at, last_event_at,
+             ward_code, department_code, assignment_event_at
+           )
+           VALUES ($1, 'unknown', 'Assigned', $2, NULL, $2, $3, $4, $2)
+           ON CONFLICT (report_id) DO UPDATE SET
+             ward_code = EXCLUDED.ward_code,
+             department_code = EXCLUDED.department_code,
+             assignment_event_at = EXCLUDED.assignment_event_at
+           WHERE report_index.assignment_event_at IS NULL OR EXCLUDED.assignment_event_at >= report_index.assignment_event_at;`,
+          [p.reportId, assignedAt, p.wardCode || null, p.departmentCode]
+        );
       }
 
       await client.query('COMMIT');
@@ -332,7 +359,7 @@ export function createAnalyticsConsumers(options: {
       });
       consumers.push(auditConsumer);
 
-      // 2. Stats queue: bindings 'report.submitted' and 'report.status-changed'
+      // 2. Stats queue: bindings 'report.submitted', 'report.status-changed', and 'report.assigned'
       const statsConsumer = rabbitClient.createConsumer(
         {
           queue: 'analytics.stats',
@@ -351,7 +378,8 @@ export function createAnalyticsConsumers(options: {
           ],
           queueBindings: [
             { exchange: 'civic.events', routingKey: 'report.submitted' },
-            { exchange: 'civic.events', routingKey: 'report.status-changed' }
+            { exchange: 'civic.events', routingKey: 'report.status-changed' },
+            { exchange: 'civic.events', routingKey: 'report.assigned' }
           ],
           qos: { prefetchCount: 10 }
         },

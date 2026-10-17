@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civic-issue-tracker.local/contracts/events/image.processed.v1.schema.json",
+  "title": "ImageProcessedV1",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "envelope.v1.schema.json"
+    },
+    {
+      "properties": {
+        "eventType": {
+          "const": "image.processed"
+        },
+        "version": {
+          "const": 1
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "imageId",
+            "ownerId",
+            "status",
+            "gpsPresent",
+            "processedAt"
+          ],
+          "properties": {
+            "imageId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "ownerId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "ready",
+                "rejected"
+              ]
+            },
+            "width": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "height": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "gpsPresent": {
+              "type": "boolean"
+            },
+            "rejectReason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "processedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

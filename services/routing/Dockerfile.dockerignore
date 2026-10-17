@@ -1,0 +1,7 @@
+*
+!services/routing
+!services/routing/**
+!contracts/events/*.schema.json
+services/routing/.venv
+services/routing/__pycache__
+services/routing/.pytest_cache

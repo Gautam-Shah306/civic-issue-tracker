@@ -1,0 +1,7 @@
+*
+!services/image
+!services/image/**
+!contracts/events/*.schema.json
+services/image/.venv
+services/image/__pycache__
+services/image/.pytest_cache

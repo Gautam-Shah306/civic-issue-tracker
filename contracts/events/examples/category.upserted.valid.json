@@ -1,0 +1,14 @@
+{
+  "eventId": "b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e",
+  "eventType": "category.upserted",
+  "version": 1,
+  "occurredAt": "2026-10-14T10:05:00.000Z",
+  "correlationId": "e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b",
+  "payload": {
+    "slug": "pothole",
+    "name": "Potholes and Road Damage",
+    "active": true,
+    "departmentCode": "roads",
+    "updatedAt": "2026-10-14T10:05:00.000Z"
+  }
+}

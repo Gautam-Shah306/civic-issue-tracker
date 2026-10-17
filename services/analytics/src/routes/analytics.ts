@@ -13,6 +13,8 @@ const SummaryResponseSchema = z.object({
   totalReports: z.number(),
   byStatus: z.record(z.string(), z.number()),
   byCategory: z.record(z.string(), z.number()),
+  byWard: z.record(z.string(), z.number()),
+  byDepartment: z.record(z.string(), z.number()),
   openReports: z.number(),
   averageResolutionHours: z.number()
 });
@@ -55,6 +57,92 @@ export async function analyticsRoutes(
   const { pool, jwtVerifier } = options;
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
 
+  async function computeSummary() {
+    const client = await pool.connect();
+    try {
+      // Total and open count
+      const totalRes = await client.query<{
+        total: string;
+        open_count: string;
+        avg_resolution: string | null;
+      }>(
+        `SELECT
+           COUNT(*)::text AS total,
+           COUNT(*) FILTER (WHERE current_status IN ('Submitted', 'Verified', 'Assigned', 'In Progress', 'Reopened'))::text AS open_count,
+           AVG(EXTRACT(EPOCH FROM (resolved_at - created_at)) / 3600.0) FILTER (WHERE resolved_at IS NOT NULL)::text AS avg_resolution
+         FROM report_index;`
+      );
+
+      // By status
+      const statusRes = await client.query<{ current_status: string; count: string }>(
+        `SELECT current_status, COUNT(*)::text AS count
+         FROM report_index
+         GROUP BY current_status;`
+      );
+
+      // By category
+      const categoryRes = await client.query<{ category: string; count: string }>(
+        `SELECT category, COUNT(*)::text AS count
+         FROM report_index
+         GROUP BY category;`
+      );
+
+      // By ward
+      const wardRes = await client.query<{ ward_code: string; count: string }>(
+        `SELECT ward_code, COUNT(*)::text AS count
+         FROM report_index
+         WHERE ward_code IS NOT NULL
+         GROUP BY ward_code;`
+      );
+
+      // By department
+      const deptRes = await client.query<{ department_code: string; count: string }>(
+        `SELECT department_code, COUNT(*)::text AS count
+         FROM report_index
+         WHERE department_code IS NOT NULL
+         GROUP BY department_code;`
+      );
+
+      const byStatus: Record<string, number> = {};
+      for (const row of statusRes.rows) {
+        byStatus[row.current_status] = parseInt(row.count, 10);
+      }
+
+      const byCategory: Record<string, number> = {};
+      for (const row of categoryRes.rows) {
+        byCategory[row.category] = parseInt(row.count, 10);
+      }
+
+      const byWard: Record<string, number> = {};
+      for (const row of wardRes.rows) {
+        byWard[row.ward_code] = parseInt(row.count, 10);
+      }
+
+      const byDepartment: Record<string, number> = {};
+      for (const row of deptRes.rows) {
+        byDepartment[row.department_code] = parseInt(row.count, 10);
+      }
+
+      const totalRow = totalRes.rows[0];
+      const totalReports = parseInt(totalRow?.total || '0', 10);
+      const openReports = parseInt(totalRow?.open_count || '0', 10);
+      const avgHoursRaw = totalRow?.avg_resolution ? parseFloat(totalRow.avg_resolution) : 0;
+      const averageResolutionHours = Math.round(avgHoursRaw * 100) / 100;
+
+      return {
+        totalReports,
+        byStatus,
+        byCategory,
+        byWard,
+        byDepartment,
+        openReports,
+        averageResolutionHours
+      };
+    } finally {
+      client.release();
+    }
+  }
+
   // 1. GET /api/v1/analytics/summary (officer, admin)
   typedApp.get(
     '/api/v1/analytics/summary',
@@ -63,7 +151,7 @@ export async function analyticsRoutes(
       schema: {
         summary: 'Get report summary metrics',
         description:
-          'Returns aggregated report counts by status, category, open count, and average resolution time.',
+          'Returns aggregated report counts by status, category, ward, department, open count, and average resolution time.',
         tags: ['Analytics'],
         response: {
           200: SummaryResponseSchema
@@ -71,61 +159,29 @@ export async function analyticsRoutes(
       }
     },
     async (_request, reply) => {
-      const client = await pool.connect();
-      try {
-        // Total and open count
-        const totalRes = await client.query<{
-          total: string;
-          open_count: string;
-          avg_resolution: string | null;
-        }>(
-          `SELECT
-             COUNT(*)::text AS total,
-             COUNT(*) FILTER (WHERE current_status IN ('Submitted', 'Verified', 'Assigned', 'In Progress', 'Reopened'))::text AS open_count,
-             AVG(EXTRACT(EPOCH FROM (resolved_at - created_at)) / 3600.0) FILTER (WHERE resolved_at IS NOT NULL)::text AS avg_resolution
-           FROM report_index;`
-        );
+      const summary = await computeSummary();
+      return reply.status(200).send(summary);
+    }
+  );
 
-        // By status
-        const statusRes = await client.query<{ current_status: string; count: string }>(
-          `SELECT current_status, COUNT(*)::text AS count
-           FROM report_index
-           GROUP BY current_status;`
-        );
-
-        // By category
-        const categoryRes = await client.query<{ category: string; count: string }>(
-          `SELECT category, COUNT(*)::text AS count
-           FROM report_index
-           GROUP BY category;`
-        );
-
-        const byStatus: Record<string, number> = {};
-        for (const row of statusRes.rows) {
-          byStatus[row.current_status] = parseInt(row.count, 10);
+  // 1b. GET /api/v1/analytics/stats/summary (officer, admin alias)
+  typedApp.get(
+    '/api/v1/analytics/stats/summary',
+    {
+      preHandler: jwtVerifier.requireRole(['officer', 'admin']),
+      schema: {
+        summary: 'Get report summary metrics (alias)',
+        description:
+          'Returns aggregated report counts by status, category, ward, department, open count, and average resolution time.',
+        tags: ['Analytics'],
+        response: {
+          200: SummaryResponseSchema
         }
-
-        const byCategory: Record<string, number> = {};
-        for (const row of categoryRes.rows) {
-          byCategory[row.category] = parseInt(row.count, 10);
-        }
-
-        const totalRow = totalRes.rows[0];
-        const totalReports = parseInt(totalRow?.total || '0', 10);
-        const openReports = parseInt(totalRow?.open_count || '0', 10);
-        const avgHoursRaw = totalRow?.avg_resolution ? parseFloat(totalRow.avg_resolution) : 0;
-        const averageResolutionHours = Math.round(avgHoursRaw * 100) / 100;
-
-        return reply.status(200).send({
-          totalReports,
-          byStatus,
-          byCategory,
-          openReports,
-          averageResolutionHours
-        });
-      } finally {
-        client.release();
       }
+    },
+    async (_request, reply) => {
+      const summary = await computeSummary();
+      return reply.status(200).send(summary);
     }
   );
 

@@ -15,6 +15,9 @@ const schemas = [
   'events/user.created.v1.schema.json',
   'events/report.submitted.v1.schema.json',
   'events/report.status-changed.v1.schema.json',
+  'events/report.assigned.v1.schema.json',
+  'events/category.upserted.v1.schema.json',
+  'events/image.processed.v1.schema.json',
   'openapi/problem.v1.schema.json'
 ];
 
@@ -30,6 +33,9 @@ const envelopeValidator = ajv.getSchema('events/envelope.v1.schema.json');
 const userCreatedValidator = ajv.getSchema('events/user.created.v1.schema.json');
 const reportSubmittedValidator = ajv.getSchema('events/report.submitted.v1.schema.json');
 const reportStatusChangedValidator = ajv.getSchema('events/report.status-changed.v1.schema.json');
+const reportAssignedValidator = ajv.getSchema('events/report.assigned.v1.schema.json');
+const categoryUpsertedValidator = ajv.getSchema('events/category.upserted.v1.schema.json');
+const imageProcessedValidator = ajv.getSchema('events/image.processed.v1.schema.json');
 const problemValidator = ajv.getSchema('openapi/problem.v1.schema.json');
 
 const requiredEnvelopeKeys = ['eventId', 'eventType', 'version', 'occurredAt', 'correlationId', 'payload'];
@@ -84,6 +90,9 @@ console.log('\nValidating event examples:');
 runTest('events/examples/user.created.valid.json', userCreatedValidator, true, true);
 runTest('events/examples/report.submitted.valid.json', reportSubmittedValidator, true, true);
 runTest('events/examples/report.status-changed.valid.json', reportStatusChangedValidator, true, true);
+runTest('events/examples/report.assigned.valid.json', reportAssignedValidator, true, true);
+runTest('events/examples/category.upserted.valid.json', categoryUpsertedValidator, true, true);
+runTest('events/examples/image.processed.valid.json', imageProcessedValidator, true, true);
 
 console.log('\nValidating OpenAPI problem examples:');
 runTest('openapi/examples/problem.valid.json', problemValidator, true, false);
@@ -91,6 +100,11 @@ runTest('openapi/examples/problem.valid.json', problemValidator, true, false);
 console.log('\nValidating negative / invalid examples:');
 runTest('events/examples/report.submitted.invalid-missing-correlation.json', reportSubmittedValidator, false, true);
 runTest('events/examples/user.created.invalid-extra-field.json', userCreatedValidator, false, true);
+runTest('events/examples/report.assigned.invalid.json', reportAssignedValidator, false, true);
+runTest('events/examples/category.upserted.invalid.json', categoryUpsertedValidator, false, true);
+runTest('events/examples/report.submitted.invalid-event-version.json', reportSubmittedValidator, false, true);
+runTest('events/examples/report.submitted.invalid-missing-occurred-at.json', reportSubmittedValidator, false, true);
+runTest('events/examples/image.processed.invalid.json', imageProcessedValidator, false, true);
 
 console.log(`\nValidation Summary: ${schemas.length} schemas compiled, ${passed} tests passed, ${failed} tests failed.`);
 

@@ -1,0 +1,26 @@
+name: Routing Service CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/routing/**'
+      - '.github/workflows/python-service.yml'
+      - 'contracts/**'
+  pull_request:
+    paths:
+      - 'services/routing/**'
+      - '.github/workflows/python-service.yml'
+      - 'contracts/**'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  test-routing:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/python-service.yml
+    with:
+      service: routing

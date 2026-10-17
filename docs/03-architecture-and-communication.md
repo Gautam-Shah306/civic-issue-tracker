@@ -1,6 +1,6 @@
 # 03: Architecture and Communication
 
-> **Status:** Approved · **Last updated:** 2026-10-14
+> **Status:** Approved · **Last updated:** 2026-10-16
 > **Principle:** split by business capability; each service owns its data; keep the service count small enough to run on free-tier resources.
 
 ---
@@ -32,15 +32,16 @@
 
 ### Asynchronous (events through RabbitMQ), for every workflow step and side effect
 
-| Event | Published by | Consumed by |
-|---|---|---|
-| `ReportSubmitted` | Report | Image, Routing, Analytics & Audit |
-| `ImageProcessed` | Image | Report, Routing |
-| `ReportAssigned` | Routing | Report, Notification, Analytics & Audit |
-| `StatusChanged` | Report | Notification, Analytics & Audit |
-| `SLABreached` | Routing | Report, Notification, Analytics & Audit |
-| `ReportReopened` / `ReportRejected` | Report | Routing, Notification, Analytics & Audit |
-| `UserCreated` | Auth | Notification, Analytics & Audit |
+| Event | Published by | Consumed by | Queue |
+|---|---|---|---|
+| `report.submitted` | Report | Routing, Notification, Analytics & Audit, Image | `routing.report-submitted`, `notification.report-submitted`, `analytics.stats` |
+| `image.processed` | Image | Report, Analytics & Audit | `report.image-processed`, `analytics.audit` |
+| `report.assigned` | Routing | Report, Notification, Analytics & Audit | `report.report-assigned`, `notification.report-assigned`, `analytics.stats` |
+| `report.status-changed` | Report | Notification, Analytics & Audit | `notification.report-status-changed`, `analytics.stats` |
+| `category.upserted` | Routing | Report | `report.category-upserted` |
+| `sla.breached` | Routing | Report, Notification, Analytics & Audit | — |
+| `report.reopened` / `report.rejected` | Report | Routing, Notification, Analytics & Audit | — |
+| `user.created` | Auth | Notification, Analytics & Audit | `notification.user-created`, `analytics.stats` |
 
 **Event envelope (on every message):** event ID, event type, version, timestamp (UTC), correlation ID, payload.
 
@@ -143,4 +144,3 @@ Recipients and report titles are resolved by the sender at send time with a join
 | OpenAPI specs and endpoint lists per service | Phase 1 onward, per feature |
 | Database schemas and migrations per service | Phase 1 onward, per feature |
 | Gateway route table and rate-limit values | Phase 1 / Phase 4 |
-| Whether Report keeps a local category cache from day one or starts with synchronous lookup | Phase 2 |

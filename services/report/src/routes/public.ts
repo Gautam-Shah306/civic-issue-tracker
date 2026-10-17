@@ -159,6 +159,23 @@ export const publicRoutes: FastifyPluginAsync<PublicRouteOptions> = async (fasti
 
       const report = reportRes.rows[0];
 
+      // Ready photos only, formatted per D-047
+      const photosRes = await pool.query(
+        `SELECT image_id as "imageId", width, height
+         FROM report_photos
+         WHERE report_id = $1 AND status = 'ready'
+         ORDER BY created_at ASC`,
+        [id]
+      );
+
+      const photos = photosRes.rows.map((r) => ({
+        imageId: r.imageId,
+        width: r.width,
+        height: r.height,
+        thumbnailUrl: `/api/v1/images/${r.imageId}/thumbnail`,
+        url: `/api/v1/images/${r.imageId}/file`
+      }));
+
       // Timeline without actor ids or internal notes
       const timelineRes = await pool.query(
         `SELECT from_status as "fromStatus", to_status as "toStatus",
@@ -178,6 +195,7 @@ export const publicRoutes: FastifyPluginAsync<PublicRouteOptions> = async (fasti
         lat: Number(Number(report.lat).toFixed(4)),
         lng: Number(Number(report.lng).toFixed(4)),
         createdAt: report.createdAt,
+        photos,
         timeline: timelineRes.rows
       });
     }

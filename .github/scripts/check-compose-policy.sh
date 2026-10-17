@@ -13,7 +13,7 @@ if grep -n 'image:.*:latest' "$COMPOSE_FILE"; then
 fi
 
 # (ii) every `image:` value contains `@sha256:` followed by 64 hex characters
-awk '/^[[:space:]]*image:/ {
+awk '/^[[:space:]]+image:[[:space:]]+/ {
   if ($0 !~ /@sha256:[a-fA-F0-9]{64}/) {
     print NR ": Violation: Missing or invalid sha256 digest in image -> " $0
     exit 1

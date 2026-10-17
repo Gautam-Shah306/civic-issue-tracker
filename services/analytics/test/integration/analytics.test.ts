@@ -955,6 +955,132 @@ describe('Analytics & Audit Service Integration Tests (Testcontainers)', () => {
     await consumers.stop();
   });
 
+  it('stats consumer indexes ward and department from report.assigned, handles out-of-order, and summary aggregates by ward and department', async () => {
+    const logger = createLogger({ serviceName: 'test-analytics-assigned', level: 'silent' });
+    const validator = createEventValidator(config);
+    const consumers = createAnalyticsConsumers({
+      config,
+      pool: rwPool,
+      rabbitClient,
+      validator,
+      logger
+    });
+    await consumers.start();
+
+    const reportId = crypto.randomUUID();
+    const baseTime = Date.now();
+    const pub = rabbitClient.createPublisher({ confirms: true });
+
+    // 1. Submit report
+    const submittedTime = new Date(baseTime).toISOString();
+    await pub.send(
+      { exchange: 'civic.events', routingKey: 'report.submitted' },
+      {
+        eventId: crypto.randomUUID(),
+        eventType: 'report.submitted',
+        version: 1,
+        occurredAt: submittedTime,
+        correlationId: crypto.randomUUID(),
+        payload: {
+          reportId,
+          reporterId: crypto.randomUUID(),
+          title: 'Assigned Routing Streetlight',
+          description: 'Dark area',
+          category: 'streetlight',
+          location: { lat: 23.0, lng: 72.0 },
+          submittedAt: submittedTime
+        }
+      }
+    );
+
+    // 2. Assign report to Ward WARD-001 and department ROADS at T+1h
+    const assignedTime1 = new Date(baseTime + 3600000).toISOString();
+    await pub.send(
+      { exchange: 'civic.events', routingKey: 'report.assigned' },
+      {
+        eventId: crypto.randomUUID(),
+        eventType: 'report.assigned',
+        version: 1,
+        occurredAt: assignedTime1,
+        correlationId: crypto.randomUUID(),
+        payload: {
+          reportId,
+          wardCode: 'WARD-001',
+          departmentCode: 'ROADS',
+          departmentName: 'Roads & Bridges',
+          departmentEmail: 'roads@civic.local',
+          source: 'auto',
+          assignedAt: assignedTime1
+        }
+      }
+    );
+
+    // Wait for assignment to be indexed
+    const assignedRow = await pollUntil(async () => {
+      const res = await rwPool.query<{ ward_code: string; department_code: string }>(
+        'SELECT ward_code, department_code FROM report_index WHERE report_id = $1 AND ward_code IS NOT NULL',
+        [reportId]
+      );
+      return res.rows.length > 0 ? res.rows[0] : null;
+    });
+
+    expect(assignedRow).not.toBeNull();
+    expect(assignedRow.ward_code).toBe('WARD-001');
+    expect(assignedRow.department_code).toBe('ROADS');
+
+    // 3. Out-of-order protection: publish an older assignment event (T-1h) with different department
+    const olderTime = new Date(baseTime - 3600000).toISOString();
+    await pub.send(
+      { exchange: 'civic.events', routingKey: 'report.assigned' },
+      {
+        eventId: crypto.randomUUID(),
+        eventType: 'report.assigned',
+        version: 1,
+        occurredAt: olderTime,
+        correlationId: crypto.randomUUID(),
+        payload: {
+          reportId,
+          wardCode: 'WARD-999',
+          departmentCode: 'SANITATION',
+          departmentName: 'Sanitation',
+          departmentEmail: 'sanitation@civic.local',
+          source: 'manual',
+          assignedAt: olderTime
+        }
+      }
+    );
+
+    await new Promise((r) => setTimeout(r, 600));
+
+    // Verify row still has WARD-001 and ROADS (older event ignored)
+    const checkRow = await rwPool.query<{ ward_code: string; department_code: string }>(
+      'SELECT ward_code, department_code FROM report_index WHERE report_id = $1',
+      [reportId]
+    );
+    expect(checkRow.rows[0].ward_code).toBe('WARD-001');
+    expect(checkRow.rows[0].department_code).toBe('ROADS');
+
+    // 4. Query summary endpoint (both /summary and /stats/summary)
+    const officerToken = await createJwt(crypto.randomUUID(), 'officer');
+    const resSummary = await request(app.server)
+      .get('/api/v1/analytics/summary')
+      .set('Authorization', `Bearer ${officerToken}`);
+
+    expect(resSummary.status).toBe(200);
+    expect(resSummary.body.byWard['WARD-001']).toBeGreaterThanOrEqual(1);
+    expect(resSummary.body.byDepartment['ROADS']).toBeGreaterThanOrEqual(1);
+
+    const resStatsSummary = await request(app.server)
+      .get('/api/v1/analytics/stats/summary')
+      .set('Authorization', `Bearer ${officerToken}`);
+
+    expect(resStatsSummary.status).toBe(200);
+    expect(resStatsSummary.body.byWard['WARD-001']).toBeGreaterThanOrEqual(1);
+    expect(resStatsSummary.body.byDepartment['ROADS']).toBeGreaterThanOrEqual(1);
+
+    await consumers.stop();
+  });
+
   it('matches committed contracts/openapi/analytics.v1.openapi.json (OpenAPI drift test)', () => {
     const candidatePaths = [
       resolve(process.cwd(), 'contracts/openapi/analytics.v1.openapi.json'),

@@ -1,0 +1,24 @@
+name: Template-py Service CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/_template-py/**'
+      - '.github/workflows/python-service.yml'
+  pull_request:
+    paths:
+      - 'services/_template-py/**'
+      - '.github/workflows/python-service.yml'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  test-template-py:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/python-service.yml
+    with:
+      service: _template-py

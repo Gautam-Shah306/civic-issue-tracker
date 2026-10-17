@@ -664,6 +664,92 @@ describe('Report Service Integration Tests (Testcontainers PostGIS & RabbitMQ)',
     expect(algNoneRes.body.code).toBe('unauthorized');
   });
 
+  it('submits reports with photoIds, attaches ready photos from images_seen, and returns URLs', async () => {
+    const citizen = crypto.randomUUID();
+    const token = await createJwt(citizen, 'citizen');
+    const photoId = crypto.randomUUID();
+
+    // 1. Pre-seed images_seen as if image was processed before report creation
+    await pool.query(
+      `INSERT INTO images_seen (image_id, status, processed_at, width, height, gps_present, seen_at)
+       VALUES ($1, 'ready', NOW(), 1600, 1200, true, NOW())`,
+      [photoId]
+    );
+
+    // 2. Submit report with photoId
+    const res = await request(app.server)
+      .post('/api/v1/reports')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        title: 'Broken streetlight with photo',
+        description: 'See attached photo',
+        category: 'pothole',
+        location: { lat: 12.9716, lng: 77.5946 },
+        photoIds: [photoId]
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toHaveProperty('photos');
+    expect(res.body.photos).toHaveLength(1);
+    expect(res.body.photos[0]).toEqual({
+      imageId: photoId,
+      width: 1600,
+      height: 1200,
+      thumbnailUrl: `/api/v1/images/${photoId}/thumbnail`,
+      url: `/api/v1/images/${photoId}/file`
+    });
+
+    const reportId = res.body.id;
+
+    // 3. Verify GET /api/v1/reports/:id returns photos
+    const getRes = await request(app.server)
+      .get(`/api/v1/reports/${reportId}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(getRes.status).toBe(200);
+    expect(getRes.body.photos).toHaveLength(1);
+    expect(getRes.body.photos[0]).toEqual({
+      imageId: photoId,
+      width: 1600,
+      height: 1200,
+      thumbnailUrl: `/api/v1/images/${photoId}/thumbnail`,
+      url: `/api/v1/images/${photoId}/file`
+    });
+
+    // Verify GET /api/v1/public/reports/:id also returns photos
+    const publicRes = await request(app.server).get(`/api/v1/public/reports/${reportId}`);
+    expect(publicRes.status).toBe(200);
+    expect(publicRes.body.photos).toHaveLength(1);
+    expect(publicRes.body.photos[0]).toEqual({
+      imageId: photoId,
+      width: 1600,
+      height: 1200,
+      thumbnailUrl: `/api/v1/images/${photoId}/thumbnail`,
+      url: `/api/v1/images/${photoId}/file`
+    });
+
+    // 4. Verify staged outbox event includes photoIds
+    const outboxRes = await pool.query(
+      `SELECT payload FROM outbox_events WHERE payload->>'reportId' = $1 AND event_type = 'report.submitted'`,
+      [reportId]
+    );
+    expect(outboxRes.rows).toHaveLength(1);
+    const outboxPayload = outboxRes.rows[0].payload;
+    expect(outboxPayload.photoIds).toEqual([photoId]);
+
+    // 5. Verify max 1 photo limit validation: 2 photos -> 400
+    const tooManyPhotosRes = await request(app.server)
+      .post('/api/v1/reports')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        title: 'Too many photos',
+        description: 'Two photos provided',
+        category: 'pothole',
+        location: { lat: 12.9716, lng: 77.5946 },
+        photoIds: [photoId, crypto.randomUUID()]
+      });
+    expect(tooManyPhotosRes.status).toBe(400);
+  });
+
   it('exercises relay lifecycle methods', async () => {
     expect(() => outboxRelay.start()).not.toThrow();
     expect(outboxRelay.isRabbitConnected()).toBe(true);

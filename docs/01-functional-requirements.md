@@ -1,6 +1,6 @@
 # 01: Functional Requirements
 
-> **Status:** Approved · **Last updated:** 2026-10-13
+> **Status:** Approved · **Last updated:** 2026-10-16
 > **Scope rule:** implement all **[Core]** and **[Should]** items. **[Optional]** items stay open and are built later only if the need arises.
 
 Each requirement has an ID. Use the ID in prompts, commits, tests and pull requests.
@@ -152,10 +152,8 @@ These were intentionally left open. Settle each in the phase shown and record it
 
 | Decision | Settle in |
 |---|---|
-| Report categories and the category-to-department mapping | Phase 2 |
 | SLA values per category | Phase 4 |
 | Priority scoring formula | Phase 4 |
 | Duplicate detection radius and matching rules | Phase 4 |
 | Upvote rules (one per user, anonymous upvotes or not) | Phase 4 |
-| Photo limits (file size, count, accepted types) | Phase 2 |
 | Retention policy for closed reports | Optional, later |

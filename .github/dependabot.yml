@@ -45,6 +45,7 @@ updates:
       default-days: 7
     groups:
       minor-and-patch:
+        group-by: dependency-name
         update-types:
           - "minor"
           - "patch"
@@ -62,12 +63,36 @@ updates:
       - "/services/gateway"
       - "/services/notification"
       - "/services/analytics"
+      - "/services/routing"
+      - "/services/image"
     schedule:
       interval: "weekly"
     cooldown:
       default-days: 7
     groups:
       minor-and-patch:
+        group-by: dependency-name
+        update-types:
+          - "minor"
+          - "patch"
+    # Major upgrades are manual decisions (Node 25 is not LTS; TypeScript 7 is blocked by the typescript-eslint peer range; @types/node must match the Node 24 runtime; infrastructure image majors need a data plan)
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "uv"
+    directories:
+      - "/services/routing"
+      - "/services/image"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      minor-and-patch:
+        group-by: dependency-name
         update-types:
           - "minor"
           - "patch"

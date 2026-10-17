@@ -43,7 +43,8 @@ export function createNotificationConsumers(options: {
     const dlqQueues = [
       'notification.user-created.dlq',
       'notification.report-submitted.dlq',
-      'notification.report-status-changed.dlq'
+      'notification.report-status-changed.dlq',
+      'notification.report-assigned.dlq'
     ];
 
     for (const dlq of dlqQueues) {
@@ -74,6 +75,11 @@ export function createNotificationConsumers(options: {
         queue: 'notification.report-status-changed',
         routingKey: 'report.status-changed',
         dlq: 'notification.report-status-changed.dlq'
+      },
+      {
+        queue: 'notification.report-assigned',
+        routingKey: 'report.assigned',
+        dlq: 'notification.report-assigned.dlq'
       }
     ];
 
@@ -228,6 +234,39 @@ export function createNotificationConsumers(options: {
             JSON.stringify({ toStatus: payload.toStatus, fromStatus: payload.fromStatus })
           ]
         );
+      } else if (data.eventType === 'report.assigned') {
+        const payload = data.payload as {
+          reportId: string;
+          wardCode?: string | null;
+          departmentCode: string;
+          departmentName: string;
+          departmentEmail: string;
+          source: 'auto' | 'manual';
+          assignedAt: string;
+        };
+
+        const repRes = await client.query<{ title: string }>(
+          `SELECT title FROM report_index WHERE report_id = $1;`,
+          [payload.reportId]
+        );
+        const title = repRes.rows.length > 0 ? repRes.rows[0].title : payload.reportId;
+        const subject = `New report assigned to ${payload.departmentName}: ${title}`;
+        const body = `A new civic issue has been assigned to your department.\nReport ID: ${payload.reportId}\nWard: ${payload.wardCode || 'Unassigned'}`;
+
+        await client.query(
+          `INSERT INTO notifications (id, event_id, kind, recipient_user_id, recipient_email, subject, body, report_id, data, status, created_at, next_attempt_at)
+           VALUES ($1, $2, 'assignment', NULL, $3, $4, $5, $6, $7, 'pending', clock_timestamp(), clock_timestamp())
+           ON CONFLICT (event_id, kind) DO NOTHING;`,
+          [
+            crypto.randomUUID(),
+            data.eventId,
+            payload.departmentEmail,
+            subject,
+            body,
+            payload.reportId,
+            JSON.stringify(payload)
+          ]
+        );
       }
 
       await client.query('COMMIT');
@@ -313,6 +352,11 @@ export function createNotificationConsumers(options: {
           'notification.report-status-changed',
           'report.status-changed',
           'notification.report-status-changed.dlq'
+        ),
+        registerConsumer(
+          'notification.report-assigned',
+          'report.assigned',
+          'notification.report-assigned.dlq'
         )
       );
 

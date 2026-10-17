@@ -1,6 +1,6 @@
 # 04: Tech Stack and Data Stores
 
-> **Status:** Approved · **Last updated:** 2026-10-13
+> **Status:** Approved · **Last updated:** 2026-10-14
 > **Guiding rules:** free-tier first, as few moving parts as possible, polyglot by design (two languages).
 
 ---
@@ -88,6 +88,12 @@ MinIO stopped publishing binaries and Docker images in October 2025, went into m
   - **Refresh tokens:** Opaque 32-byte random tokens stored only as SHA-256 hashes, 7-day TTL, rotated on each refresh, with token-family reuse detection revoking the family.
   - **Password hashing:** argon2id with config-driven parameters (default 19456 KiB, 2 iterations, parallelism 1) in PHC string format; policy enforces 10–128 characters and distinct from email.
   - **Migrations & ORM:** Plain-SQL migrations applied by `node dist/migrate.js` with advisory lock and checksums; Drizzle ORM for queries.
+- **Python service conventions (D-044):**
+  - **Runtime & toolchain:** Python 3.13; uv with committed `uv.lock` (hash-pinned) and `[tool.uv] exclude-newer = "7 days"`, exact `==` pins in `pyproject.toml`, `uv sync --frozen`; `services/_template-py/` is the copy source.
+  - **Web framework:** FastAPI + Pydantic v2 + Uvicorn with structured JSON logging (`correlation_id` contextvar).
+  - **Database access & migrations:** psycopg 3 with connection pool (`psycopg_pool`), NO ORM; plain-SQL migrations via `python -m app.migrate` enforcing advisory lock, checksum validation, and `schema_migrations` tracking matching Node runner semantics.
+  - **Messaging & security:** aio-pika with publisher confirms; PyJWT[crypto] with EdDSA only; jsonschema for event contract validation.
+  - **Linting, formatting & testing:** Ruff (lint and format), pytest, pytest-cov with a 60% coverage gate, Testcontainers.
 
 ---
 
@@ -95,8 +101,6 @@ MinIO stopped publishing binaries and Docker images in October 2025, went into m
 
 | Decision | Settle in |
 |---|---|
-| Python data access and migrations (SQLAlchemy + Alembic is the suggested default) | Phase 2 |
-| Python test and lint tooling (pytest and Ruff are the suggested defaults) | Phase 2 |
 | Free-tier email service for the live demo | Phase 5 |
 | Re-measure SeaweedFS memory under load (idle about 63 MiB, D-033; Garage stays the fallback) | Phase 4 |
 | Frontend state, routing and UI component approach | Phase 1 |

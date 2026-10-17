@@ -1,0 +1,16 @@
+{
+  "eventId": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+  "eventType": "report.assigned",
+  "version": 1,
+  "occurredAt": "2026-10-14T10:00:00.000Z",
+  "correlationId": "f0e1d2c3-b4a5-4678-9012-abcdef123456",
+  "payload": {
+    "reportId": "d1e2f3a4-b5c6-4789-0123-456789abcdef",
+    "wardCode": "W-R1C1",
+    "departmentCode": "roads",
+    "departmentName": "Roads & Infrastructure",
+    "departmentEmail": "roads@civic.example.test",
+    "source": "auto",
+    "assignedAt": "2026-10-14T10:00:00.000Z"
+  }
+}

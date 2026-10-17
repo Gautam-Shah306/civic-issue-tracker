@@ -1,6 +1,6 @@
 # 11: Scope and Phases
 
-> **Status:** Approved with updates · **Last updated:** 2026-10-13
+> **Status:** Approved with updates · **Last updated:** 2026-10-14
 > **Team:** one person. **Timeline:** none fixed ("we go as we go"). The plan is ordered so every phase leaves something working and demonstrable, and the riskiest, time-limited parts come last.
 
 ---
@@ -101,7 +101,7 @@ The 8-service architecture stays regardless, but a service can be built thin. Fo
 ## 7. Synthetic data
 
 - **Wards:** a generated set of simplified polygons (for example a grid of rectangles with names and codes) stored as GeoJSON and loaded into the Routing service's PostGIS tables. Real boundaries are **not** used.
-- **Reference data:** departments (Roads, Sanitation, Electricity and similar), categories mapped to departments, SLA values.
+- **Reference data:** departments (Roads, Sanitation, Electricity and similar), categories mapped to departments, SLA values. Reference data is seeded by SQL migrations (D-045), and demo users and reports come from a small script in cycle 5 or 9.
 - **Users:** seeded citizens, officers and an admin for demos (clearly fake credentials, never real ones, and never committed if they could be mistaken for real secrets).
 - **Reports:** generated reports across wards, categories and statuses for dashboards, maps and the load test.
 - A single repeatable **seed script** (idempotent) produces all of this.
@@ -126,6 +126,5 @@ The 8-service architecture stays regardless, but a service can be built thin. Fo
 |---|---|
 | Sub-steps and ordering inside each phase (planned per phase as it starts) | At the start of each phase |
 | Ward grid size, names and codes; department and category lists | Phase 2 |
-| Seed script design (language, location, how it is run) | Phase 2 |
 | Load test tool and scenarios | Phase 4 |
 | README structure and architecture diagram format | Phase 5 |

@@ -1,4 +1,6 @@
+import http from 'node:http';
 import { generateKeyPairSync } from 'node:crypto';
+import { AddressInfo } from 'node:net';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import Fastify, { FastifyInstance } from 'fastify';
@@ -15,9 +17,13 @@ describe('Gateway Service Integration Tests', () => {
   let authUpstream: FastifyInstance;
   let reportUpstream: FastifyInstance;
   let analyticsUpstream: FastifyInstance;
+  let routingUpstream: FastifyInstance;
+  let imageUpstream: FastifyInstance;
   let authPort: number;
   let reportPort: number;
   let analyticsPort: number;
+  let routingPort: number;
+  let imagePort: number;
   let gatewayPort: number;
   let gatewayApp: Awaited<ReturnType<typeof buildApp>>;
   let privateKeyPem: string;
@@ -39,7 +45,7 @@ describe('Gateway Service Integration Tests', () => {
     authUpstream = Fastify();
     authUpstream.post('/api/v1/auth/register', async (req, reply) => {
       return reply.status(201).send({
-        user: { id: 'u-1', email: (req.body as any)?.email },
+        user: { id: 'u-1', email: (req.body as { email?: string })?.email },
         receivedHeaders: req.headers
       });
     });
@@ -58,7 +64,7 @@ describe('Gateway Service Integration Tests', () => {
         .send({ id: req.headers['x-user-id'], role: req.headers['x-user-role'] });
     });
     await authUpstream.listen({ port: 0, host: '127.0.0.1' });
-    authPort = (authUpstream.server.address() as any).port;
+    authPort = (authUpstream.server.address() as AddressInfo).port;
 
     // 4. Start Mock Report Upstream
     reportUpstream = Fastify();
@@ -71,7 +77,7 @@ describe('Gateway Service Integration Tests', () => {
     });
     reportUpstream.post('/api/v1/reports', async (req, reply) => {
       return reply.status(201).send({
-        report: { id: 'rpt-created', ...(req.body as any) },
+        report: { id: 'rpt-created', ...(req.body as Record<string, unknown>) },
         receivedHeaders: req.headers
       });
     });
@@ -89,13 +95,13 @@ describe('Gateway Service Integration Tests', () => {
     });
     reportUpstream.get('/api/v1/reports/:id', async (req, reply) => {
       return reply.status(200).send({
-        id: (req.params as any).id,
+        id: (req.params as { id: string }).id,
         receivedHeaders: req.headers
       });
     });
     reportUpstream.post('/api/v1/reports/:id/status', async (req, reply) => {
       return reply.status(200).send({
-        status: (req.body as any)?.status,
+        status: (req.body as { status?: string })?.status,
         receivedHeaders: req.headers
       });
     });
@@ -104,7 +110,7 @@ describe('Gateway Service Integration Tests', () => {
       return { ok: true };
     });
     await reportUpstream.listen({ port: 0, host: '127.0.0.1' });
-    reportPort = (reportUpstream.server.address() as any).port;
+    reportPort = (reportUpstream.server.address() as AddressInfo).port;
 
     // 5. Start Mock Analytics Upstream
     analyticsUpstream = Fastify();
@@ -115,13 +121,84 @@ describe('Gateway Service Integration Tests', () => {
       });
     });
     await analyticsUpstream.listen({ port: 0, host: '127.0.0.1' });
-    analyticsPort = (analyticsUpstream.server.address() as any).port;
+    analyticsPort = (analyticsUpstream.server.address() as AddressInfo).port;
 
-    // 6. Start Gateway Application
+    // 6. Start Mock Routing Upstream
+    routingUpstream = Fastify();
+    routingUpstream.get('/api/v1/routing/wards', async (req, reply) => {
+      return reply.status(200).send({
+        items: [{ code: 'WARD-001', name: 'Ward 1' }],
+        receivedHeaders: req.headers
+      });
+    });
+    routingUpstream.get('/api/v1/routing/departments', async (req, reply) => {
+      return reply.status(200).send({
+        items: [{ code: 'ROADS', name: 'Roads & Bridges' }],
+        receivedHeaders: req.headers
+      });
+    });
+    routingUpstream.get('/api/v1/routing/categories', async (req, reply) => {
+      return reply.status(200).send({
+        items: [{ id: 'pothole', departmentCode: 'ROADS' }],
+        receivedHeaders: req.headers
+      });
+    });
+    routingUpstream.post('/api/v1/routing/assignments', async (req, reply) => {
+      return reply.status(200).send({
+        assigned: true,
+        receivedHeaders: req.headers
+      });
+    });
+    await routingUpstream.listen({ port: 0, host: '127.0.0.1' });
+    routingPort = (routingUpstream.server.address() as AddressInfo).port;
+
+    // 7. Start Mock Image Upstream
+    imageUpstream = Fastify({ bodyLimit: 20 * 1024 * 1024 });
+    const upstreamParserOpts = { parseAs: 'buffer' as const, bodyLimit: 20 * 1024 * 1024 };
+    const upstreamParser = (
+      _req: unknown,
+      body: Buffer,
+      done: (err: Error | null, body?: Buffer) => void
+    ) => {
+      done(null, body);
+    };
+    imageUpstream.addContentTypeParser(
+      ['application/octet-stream', 'multipart/form-data'],
+      upstreamParserOpts,
+      upstreamParser
+    );
+    imageUpstream.addContentTypeParser(/^multipart\//, upstreamParserOpts, upstreamParser);
+    imageUpstream.addContentTypeParser(/^image\//, upstreamParserOpts, upstreamParser);
+    imageUpstream.post('/api/v1/images', async (req, reply) => {
+      return reply.status(202).send({
+        imageId: 'img-123',
+        status: 'pending',
+        receivedHeaders: req.headers
+      });
+    });
+    imageUpstream.get('/api/v1/images/:imageId', async (req, reply) => {
+      return reply.status(200).send({
+        id: (req.params as { imageId: string }).imageId,
+        status: 'ready',
+        receivedHeaders: req.headers
+      });
+    });
+    imageUpstream.get('/api/v1/images/:imageId/thumbnail', async (_req, reply) => {
+      return reply.status(200).type('image/webp').send(Buffer.from('fake-thumb'));
+    });
+    imageUpstream.get('/api/v1/images/:imageId/file', async (_req, reply) => {
+      return reply.status(200).type('image/jpeg').send(Buffer.from('fake-file'));
+    });
+    await imageUpstream.listen({ port: 0, host: '127.0.0.1' });
+    imagePort = (imageUpstream.server.address() as AddressInfo).port;
+
+    // 8. Start Gateway Application
     const config = loadConfig({
       AUTH_SERVICE_URL: `http://127.0.0.1:${authPort}`,
       REPORT_SERVICE_URL: `http://127.0.0.1:${reportPort}`,
       ANALYTICS_URL: `http://127.0.0.1:${analyticsPort}`,
+      ROUTING_URL: `http://127.0.0.1:${routingPort}`,
+      IMAGE_URL: `http://127.0.0.1:${imagePort}`,
       REDIS_URL: redisUrl,
       JWT_PUBLIC_KEY_B64: publicKeyB64,
       JWT_ISSUER: 'civic-auth',
@@ -133,7 +210,7 @@ describe('Gateway Service Integration Tests', () => {
       redis: redisClient
     });
     await gatewayApp.listen({ port: 0, host: '127.0.0.1' });
-    gatewayPort = (gatewayApp.server.address() as any).port;
+    gatewayPort = (gatewayApp.server.address() as AddressInfo).port;
   });
 
   afterAll(async () => {
@@ -141,6 +218,8 @@ describe('Gateway Service Integration Tests', () => {
     if (authUpstream) await authUpstream.close();
     if (reportUpstream) await reportUpstream.close();
     if (analyticsUpstream) await analyticsUpstream.close();
+    if (routingUpstream) await routingUpstream.close();
+    if (imageUpstream) await imageUpstream.close();
     if (redisClient) redisClient.disconnect();
     if (redisContainer) await redisContainer.stop();
   });
@@ -556,6 +635,170 @@ describe('Gateway Service Integration Tests', () => {
       expect(res.status).toBe(413);
       const body = (await res.json()) as { code: string };
       expect(body.code).toBe('payload_too_large');
+    });
+  });
+
+  describe('Routing Service Reverse Proxy', () => {
+    it('proxies public GET /api/v1/routing/wards without authentication', async () => {
+      const res = await request(gatewayApp.server).get('/api/v1/routing/wards');
+      expect(res.status).toBe(200);
+      expect(res.body.items).toHaveLength(1);
+      expect(res.body.items[0].code).toBe('WARD-001');
+    });
+
+    it('proxies public GET /api/v1/routing/departments without authentication', async () => {
+      const res = await request(gatewayApp.server).get('/api/v1/routing/departments');
+      expect(res.status).toBe(200);
+      expect(res.body.items).toHaveLength(1);
+      expect(res.body.items[0].code).toBe('ROADS');
+    });
+
+    it('proxies public GET /api/v1/routing/categories without authentication', async () => {
+      const res = await request(gatewayApp.server).get('/api/v1/routing/categories');
+      expect(res.status).toBe(200);
+      expect(res.body.items).toHaveLength(1);
+      expect(res.body.items[0].id).toBe('pothole');
+    });
+
+    it('rejects unauthenticated requests to protected routing routes with 401', async () => {
+      const res = await request(gatewayApp.server)
+        .post('/api/v1/routing/assignments')
+        .send({ reportId: '00000000-0000-0000-0000-000000000001' });
+
+      expect(res.status).toBe(401);
+      expect(res.headers['content-type']).toContain('application/problem+json');
+      expect(res.body.code).toBe('unauthorized');
+    });
+
+    it('proxies authenticated requests to protected routing routes and passes identity headers', async () => {
+      const token = await createToken({
+        sub: 'user-officer-99',
+        role: 'officer',
+        email: 'officer99@civic.local'
+      });
+      const res = await request(gatewayApp.server)
+        .post('/api/v1/routing/assignments')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ reportId: '00000000-0000-0000-0000-000000000001' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.assigned).toBe(true);
+      expect(res.body.receivedHeaders['x-user-id']).toBe('user-officer-99');
+      expect(res.body.receivedHeaders['x-user-role']).toBe('officer');
+      expect(res.body.receivedHeaders['x-user-email']).toBe('officer99@civic.local');
+    });
+  });
+
+  describe('Image Service Reverse Proxy', () => {
+    it('allows 5 MiB upload through gateway with authentication', async () => {
+      const token = await createToken({
+        sub: 'user-citizen-42',
+        role: 'citizen',
+        email: 'citizen42@civic.local'
+      });
+      const fiveMbBuffer = Buffer.alloc(5 * 1024 * 1024, 0x42);
+
+      const res = await fetch(`http://127.0.0.1:${gatewayPort}/api/v1/images`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/octet-stream'
+        },
+        body: fiveMbBuffer
+      });
+
+      expect(res.status).toBe(202);
+      const data = (await res.json()) as {
+        imageId: string;
+        status: string;
+        receivedHeaders: Record<string, string>;
+      };
+      expect(data.imageId).toBe('img-123');
+      expect(data.receivedHeaders['x-user-id']).toBe('user-citizen-42');
+      expect(data.receivedHeaders['x-user-role']).toBe('citizen');
+    });
+
+    it('rejects 10 MiB upload with 413 Payload Too Large (exceeds 9 MiB limit)', async () => {
+      const token = await createToken({
+        sub: 'user-citizen-42',
+        role: 'citizen'
+      });
+      const totalBytes = 10 * 1024 * 1024;
+
+      const res = await new Promise<{ status: number; body: { code: string } }>(
+        (resolve, reject) => {
+          const clientReq = http.request(
+            `http://127.0.0.1:${gatewayPort}/api/v1/images`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/octet-stream',
+                'Content-Length': totalBytes
+              }
+            },
+            (clientRes) => {
+              let data = '';
+              clientRes.on('data', (chunk) => {
+                data += chunk;
+              });
+              clientRes.on('end', () => {
+                try {
+                  resolve({ status: clientRes.statusCode!, body: JSON.parse(data) });
+                } catch (e) {
+                  reject(e);
+                }
+              });
+            }
+          );
+
+          clientReq.on('error', (err: unknown) => {
+            if ((err as { code?: string }).code !== 'ECONNRESET') {
+              reject(err);
+            }
+          });
+
+          // Write initial chunk; Fastify checks Content-Length against 9 MiB limit and sends 413
+          const chunk = Buffer.alloc(64 * 1024, 0x42);
+          clientReq.write(chunk);
+        }
+      );
+
+      expect(res.status).toBe(413);
+      expect(res.body.code).toBe('payload_too_large');
+    });
+
+    it('proxies public GET /api/v1/images/:imageId/thumbnail without authentication', async () => {
+      const res = await request(gatewayApp.server).get('/api/v1/images/img-123/thumbnail');
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('image/webp');
+    });
+
+    it('proxies public GET /api/v1/images/:imageId/file without authentication', async () => {
+      const res = await request(gatewayApp.server).get('/api/v1/images/img-123/file');
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('image/jpeg');
+    });
+
+    it('rejects unauthenticated GET /api/v1/images/:imageId with 401', async () => {
+      const res = await request(gatewayApp.server).get('/api/v1/images/img-123');
+      expect(res.status).toBe(401);
+      expect(res.headers['content-type']).toContain('application/problem+json');
+      expect(res.body.code).toBe('unauthorized');
+    });
+
+    it('proxies authenticated GET /api/v1/images/:imageId', async () => {
+      const token = await createToken({
+        sub: 'user-citizen-42',
+        role: 'citizen'
+      });
+      const res = await request(gatewayApp.server)
+        .get('/api/v1/images/img-123')
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(200);
+      expect(res.body.id).toBe('img-123');
+      expect(res.body.status).toBe('ready');
+      expect(res.body.receivedHeaders['x-user-id']).toBe('user-citizen-42');
     });
   });
 });

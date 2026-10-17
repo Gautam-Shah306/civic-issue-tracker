@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civic-issue-tracker.local/contracts/events/category.upserted.v1.schema.json",
+  "title": "CategoryUpsertedV1",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "envelope.v1.schema.json"
+    },
+    {
+      "properties": {
+        "eventType": {
+          "const": "category.upserted"
+        },
+        "version": {
+          "const": 1
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "slug",
+            "name",
+            "active",
+            "departmentCode",
+            "updatedAt"
+          ],
+          "properties": {
+            "slug": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "active": {
+              "type": "boolean"
+            },
+            "departmentCode": {
+              "type": "string"
+            },
+            "updatedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

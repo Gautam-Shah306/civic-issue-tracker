@@ -985,4 +985,106 @@ describe('Notification Service Integration Tests (Testcontainers)', () => {
     expect(missingRowRes.rows[0].status).toBe('failed');
     expect(missingRowRes.rows[0].last_error).toContain('waiting for recipient data timeout');
   });
+
+  it('consumes report.assigned and sends notification email to departmentEmail via SMTP', async () => {
+    const logger = createLogger({ serviceName: 'test-report-assigned', level: 'silent' });
+    const validator = createEventValidator(config);
+    const consumers = createNotificationConsumers({
+      config,
+      pool,
+      rabbitClient,
+      validator,
+      logger
+    });
+    await consumers.start();
+    activeConsumers.push(consumers);
+
+    const mailer = createMailer(config);
+    const senderLoop = createSenderLoop({
+      config,
+      pool,
+      mailer,
+      logger
+    });
+
+    const reportId = crypto.randomUUID();
+    const eventId = crypto.randomUUID();
+    const deptEmail = `roads-${crypto.randomUUID().slice(0, 8)}@civic.local`;
+
+    // Optionally seed report_index with a title
+    await pool.query(
+      `INSERT INTO report_index (report_id, reporter_id, title) VALUES ($1, $2, $3);`,
+      [reportId, crypto.randomUUID(), 'Broken Traffic Light Main St']
+    );
+
+    const reportAssignedEvent = {
+      eventId,
+      eventType: 'report.assigned',
+      version: 1,
+      occurredAt: new Date().toISOString(),
+      correlationId: crypto.randomUUID(),
+      payload: {
+        reportId,
+        wardCode: 'WARD-001',
+        departmentCode: 'ROADS',
+        departmentName: 'Roads & Bridges',
+        departmentEmail: deptEmail,
+        source: 'auto',
+        assignedAt: new Date().toISOString()
+      }
+    };
+
+    const pub = rabbitClient.createPublisher({ confirms: true });
+    await pub.send(
+      { exchange: 'civic.events', routingKey: 'report.assigned' },
+      reportAssignedEvent
+    );
+
+    // Wait for consumer to process report.assigned
+    let notifRow: {
+      kind: string;
+      status: string;
+      recipient_email: string;
+      subject: string;
+      body: string;
+    } | null = null;
+    for (let i = 0; i < 30; i++) {
+      const res = await pool.query('SELECT * FROM notifications WHERE event_id = $1', [eventId]);
+      if (res.rows.length > 0) {
+        notifRow = res.rows[0];
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 200));
+    }
+
+    expect(notifRow).not.toBeNull();
+    expect(notifRow!.kind).toBe('assignment');
+    expect(notifRow!.status).toBe('pending');
+    expect(notifRow!.recipient_email).toBe(deptEmail);
+    expect(notifRow!.subject).toContain('Roads & Bridges');
+    expect(notifRow!.body).toContain('WARD-001');
+
+    // Deliver via sender loop
+    const sentCount = await senderLoop.processBatch();
+    expect(sentCount).toBe(1);
+
+    const sentRow = await pool.query(
+      'SELECT status, sent_at FROM notifications WHERE event_id = $1',
+      [eventId]
+    );
+    expect(sentRow.rows[0].status).toBe('sent');
+    expect(sentRow.rows[0].sent_at).not.toBeNull();
+
+    // Verify via Mailpit HTTP API
+    const resp = await fetch(`${mailpitHttpUrl}/api/v1/messages`);
+    expect(resp.status).toBe(200);
+    const data = (await resp.json()) as {
+      messages: Array<{ To: Array<{ Address: string }>; Subject: string; ID: string }>;
+    };
+    const matchingMessage = data.messages.find((m) => m.To.some((t) => t.Address === deptEmail));
+    expect(matchingMessage).toBeDefined();
+    expect(matchingMessage!.Subject).toContain('Roads & Bridges');
+
+    await consumers.stop();
+  });
 });

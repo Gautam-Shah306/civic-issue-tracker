@@ -1,6 +1,6 @@
 # 05: Docker and Service Standards
 
-> **Status:** Approved · **Last updated:** 2026-10-13
+> **Status:** Approved · **Last updated:** 2026-10-14
 > Docker is worth **4 of 20 marks**. Every service is containerized to the standards below.
 
 ---
@@ -53,6 +53,12 @@ CI uses **path filters**, so a change in one service builds and tests only that 
 - **Build cache:** no cross-run build cache in CI yet (plain `docker build`), to be revisited if build times exceed about 5 minutes.
 - **Root-context build convention (D-038):** builds use the repository root as context (`docker build -f services/<svc>/Dockerfile --build-arg SERVICE=<svc> .`) with an allow-list `Dockerfile.dockerignore` per service, so event schemas from `contracts/events/` and migrations are copied into the runtime image.
 
+### Python services (D-044)
+- **Base images:** multi-stage builds build on `python:3.13-slim-trixie` and run on `gcr.io/distroless/python3-debian13:nonroot`, both pinned by digest (fallback `python:3.13-slim-trixie` non-root if distroless fails; record if used).
+- **Runtime probes:** distroless runtime container runs as non-root with no shell; health probes run via a lightweight `healthcheck.py` script (`python healthcheck.py`).
+- **Package installation:** `uv sync --frozen --no-dev` into `/app/.venv`, with `PYTHONPATH` pointing to the virtualenv site-packages.
+- **Root-context build convention:** builds use the repository root as context (`docker build -f services/<svc>/Dockerfile --build-arg SERVICE=<svc> .`) with an allow-list `Dockerfile.dockerignore` per service, so contracts and migrations are copied into the runtime image.
+
 ## 3. Docker Compose and Kubernetes parity
 
 One Compose setup runs all 8 services plus PostgreSQL, RabbitMQ, Redis, SeaweedFS and Mailpit with one command. It mirrors the Kubernetes setup so the move to k3s changes the packaging, not the application.
@@ -91,6 +97,5 @@ These are estimates. They are replaced by measured numbers in Phase 3 and Phase 
 
 | Decision | Settle in |
 |---|---|
-| Exact base image for the Python services (Python version, slim vs distroless) | Phase 2 |
 | Local Kubernetes tool for rehearsals (k3s or kind) | Phase 3 |
 | `linux/arm64` builds (only if needed) | Phase 3 or later |
