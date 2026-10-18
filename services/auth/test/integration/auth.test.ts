@@ -468,7 +468,7 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
     const bootstrapEmail = 'bootstrap.admin@civic.test';
     const bootstrapPass = 'BootstrapAdmin#2026!';
 
-    it('bootstrap creates exactly one admin on two starts', async () => {
+    it('bootstrap creates exactly one admin across two starts and never overwrites an existing user', async () => {
       const logger = createLogger({ serviceName: 'test-bootstrap', level: 'silent' });
       const validator = createEventValidator(config);
 
@@ -501,6 +501,26 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
         [bootstrapEmail]
       );
       expect(outboxRes.rows).toHaveLength(1);
+
+      // Never overwrites an existing user if bootstrap runs with an existing email
+      const existingUserEmail = `existing_${Date.now()}@civic.test`;
+      await pool.query(
+        `INSERT INTO users (id, email, email_normalized, display_name, password_hash, role, is_active, created_at, updated_at)
+         VALUES ($1, $2, $2, 'Existing Citizen', 'hash', 'citizen', true, NOW(), NOW())`,
+        [crypto.randomUUID(), existingUserEmail]
+      );
+      const overwriteConfig = loadConfig({
+        ...config,
+        BOOTSTRAP_ADMIN_EMAIL: existingUserEmail,
+        BOOTSTRAP_ADMIN_PASSWORD: bootstrapPass
+      });
+      await bootstrapAdmin(pool, overwriteConfig, logger, validator);
+      const existingUserCheck = await pool.query(
+        'SELECT display_name, role FROM users WHERE email = $1',
+        [existingUserEmail]
+      );
+      expect(existingUserCheck.rows[0].display_name).toBe('Existing Citizen');
+      expect(existingUserCheck.rows[0].role).toBe('citizen');
     });
 
     it('enforces RBAC, guards, deactivation token revocation, and user.updated event emission', async () => {
@@ -618,6 +638,23 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
         .set('Authorization', `Bearer ${officerToken}`);
       expect(officerAdminRes.status).toBe(403);
 
+      const officerPostRes = await request(app.server)
+        .post('/api/v1/auth/users')
+        .set('Authorization', `Bearer ${officerToken}`)
+        .send({
+          email: 'officer.sub@civic.test',
+          password: 'Pass#12345678',
+          displayName: 'Sub Officer',
+          role: 'officer'
+        });
+      expect(officerPostRes.status).toBe(403);
+
+      const officerPatchRes = await request(app.server)
+        .patch(`/api/v1/auth/users/${officerId}`)
+        .set('Authorization', `Bearer ${officerToken}`)
+        .send({ displayName: 'Officer New' });
+      expect(officerPatchRes.status).toBe(403);
+
       // 5. GET /api/v1/auth/users with pagination and filters
       const listUsersRes = await request(app.server)
         .get('/api/v1/auth/users?role=officer&page=1&pageSize=10')
@@ -629,6 +666,22 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
       expect(listUsersRes.body.items.some((u: { email: string }) => u.email === officerEmail)).toBe(
         true
       );
+
+      const listActiveRes = await request(app.server)
+        .get('/api/v1/auth/users?active=true')
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(listActiveRes.status).toBe(200);
+      expect(
+        listActiveRes.body.items.every((u: { isActive: boolean }) => u.isActive === true)
+      ).toBe(true);
+
+      const listInactiveRes = await request(app.server)
+        .get('/api/v1/auth/users?active=false')
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(listInactiveRes.status).toBe(200);
+      expect(
+        listInactiveRes.body.items.every((u: { isActive: boolean }) => u.isActive === false)
+      ).toBe(true);
 
       const searchUsersRes = await request(app.server)
         .get(`/api/v1/auth/users?q=${encodeURIComponent(officerEmail)}`)
@@ -815,6 +868,14 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
         .send({ isActive: false });
       expect(lastAdminRes.status).toBe(409);
       expect(lastAdminRes.body.code).toBe('last_admin');
+
+      // Demoting the last active admin also returns 409 last_admin
+      const lastAdminDemoteRes = await request(app.server)
+        .patch(`/api/v1/auth/users/${testAdminBId}`)
+        .set('Authorization', `Bearer ${loginA.body.accessToken}`)
+        .send({ role: 'officer' });
+      expect(lastAdminDemoteRes.status).toBe(409);
+      expect(lastAdminDemoteRes.body.code).toBe('last_admin');
 
       // Restore Admin 1 as active admin for rest of test
       await pool.query("UPDATE users SET is_active = true, role = 'admin' WHERE id = $1", [

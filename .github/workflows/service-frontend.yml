@@ -1,0 +1,27 @@
+name: Frontend Service CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/frontend/**'
+      - '.github/workflows/node-service.yml'
+      - 'contracts/**'
+  pull_request:
+    paths:
+      - 'services/frontend/**'
+      - '.github/workflows/node-service.yml'
+      - 'contracts/**'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  test-frontend:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/node-service.yml
+    with:
+      service: frontend
+      port: 8080

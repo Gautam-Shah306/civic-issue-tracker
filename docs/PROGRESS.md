@@ -7,10 +7,10 @@
 ## Status
 
 - **Current phase:** Phase 1, Walking skeleton (in progress)
-- **Last verified step:** v1 cycle 4b: Image service + photo pipeline + verify-and-repair 4a (D-047)
+- **Last verified step:** Prompt 1: backend completion, admin bootstrap, seed & e2e (D-048)
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
 - **Cloud account:** not created (by design; created in Phase 5)
-- **Next action:** Prompt 2: frontend A
+- **Next action:** Prompt 3: frontend B (staff and admin views)
 
 ## v1 plan (D-039)
 
@@ -108,3 +108,4 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 | 2026-10-14 | v1 cycle 4a: Python base + Routing + automatic assignment (D-044, D-045, D-046) | Verified |
 | 2026-10-16 | v1 cycle 4b: Image service + photo pipeline (D-047) | Verified |
 | 2026-10-18 | Prompt 1: backend completion, admin bootstrap, seed & e2e (D-048) | Verified |
+| 2026-10-18 | Prompt 2: frontend A (foundation, design system, public views, auth, citizen journey) (D-049) | Verified |

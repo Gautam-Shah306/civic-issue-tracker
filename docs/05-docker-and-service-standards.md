@@ -1,6 +1,6 @@
 # 05: Docker and Service Standards
 
-> **Status:** Approved · **Last updated:** 2026-10-14
+> **Status:** Approved · **Last updated:** 2026-10-18
 > Docker is worth **4 of 20 marks**. Every service is containerized to the standards below.
 
 ---
@@ -58,6 +58,13 @@ CI uses **path filters**, so a change in one service builds and tests only that 
 - **Runtime probes:** distroless runtime container runs as non-root with no shell; health probes run via a lightweight `healthcheck.py` script (`python healthcheck.py`).
 - **Package installation:** `uv sync --frozen --no-dev` into `/app/.venv`, with `PYTHONPATH` pointing to the virtualenv site-packages.
 - **Root-context build convention:** builds use the repository root as context (`docker build -f services/<svc>/Dockerfile --build-arg SERVICE=<svc> .`) with an allow-list `Dockerfile.dockerignore` per service, so contracts and migrations are copied into the runtime image.
+
+### Frontend
+- **Base images:** multi-stage build using `node:24-bookworm-slim` (builder) and `nginxinc/nginx-unprivileged:alpine-slim` (runtime), both pinned by digest.
+- **Security & runtime:** runs as non-root on port 8080, read-only root filesystem with tmpfs mounts (`/tmp`, `/var/cache/nginx`, `/var/run`), dropping all default privileges (`no-new-privileges: true`).
+- **Static serving & SPA:** serves production bundle with SPA fallback (`try_files $uri $uri/ /index.html`), immutable caching for hashed assets, `no-store` for `index.html`, and health probe on `/healthz` returning 200.
+- **Reverse proxy & security headers:** proxies `/api/` and `/.well-known/` to `${GATEWAY_URL}` with `client_max_body_size 9m`. Emits strict security headers: Content-Security-Policy (CSP), X-Content-Type-Options `nosniff`, Referrer-Policy `strict-origin-when-cross-origin`, Permissions-Policy `geolocation=(self)`, and X-Frame-Options `DENY`.
+- **Root-context build convention:** built from repository root (`docker build -f services/frontend/Dockerfile --build-arg SERVICE=frontend .`) with allow-list `Dockerfile.dockerignore`.
 
 ## 3. Docker Compose and Kubernetes parity
 

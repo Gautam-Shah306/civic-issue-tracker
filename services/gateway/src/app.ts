@@ -227,6 +227,12 @@ export async function buildApp(config: Config, deps: AppDependencies = {}) {
         timeout: config.UPSTREAM_TIMEOUT_MS,
         body: isMultipart && Buffer.isBuffer(request.body) ? request.body : undefined,
         contentType: isMultipart ? rawContentType : undefined,
+        rewriteRequestHeaders: (_req, headers) => {
+          if (isMultipart) {
+            delete headers['transfer-encoding'];
+          }
+          return headers;
+        },
         onError(errReply, { error }) {
           const errMsg = error.message.toLowerCase();
           const errCode = (error as { code?: string }).code;

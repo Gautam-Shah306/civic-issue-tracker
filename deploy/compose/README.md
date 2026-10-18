@@ -34,7 +34,7 @@ To run the full application stack including microservices (Gateway, Auth, Report
 ```powershell
 docker compose -f deploy/compose/docker-compose.yml --profile app up -d --build --wait
 ```
-This runs database migrations (`auth-migrate`, `report-migrate`, `notification-migrate`, `analytics-migrate`), starts internal services (`auth`, `report`, `notification`, `analytics`), and starts `gateway` on port 8080.
+This runs database migrations (`auth-migrate`, `report-migrate`, `notification-migrate`, `analytics-migrate`, `routing-migrate`, `image-migrate`), starts internal services (`auth`, `report`, `notification`, `analytics`, `routing`, `image`), and starts `gateway` on port 8080 and `frontend` on port 5173.
 
 To stop the full application stack:
 ```powershell
@@ -69,3 +69,4 @@ All exposed services bind strictly to `127.0.0.1` locally:
 | SeaweedFS | 8333 | S3 compatible storage |
 | Mailpit | 1025, 8025 | SMTP and Web UI |
 | Gateway | 8080 | Unified API Gateway (`/api/v1/*`, `/healthz`, `/readyz`) |
+| Frontend | 5173 | Web Frontend (SPA, Reverse proxy to Gateway) |

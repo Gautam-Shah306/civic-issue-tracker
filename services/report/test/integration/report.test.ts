@@ -404,6 +404,67 @@ describe('Report Service Integration Tests (Testcontainers PostGIS & RabbitMQ)',
     expect(qList.body.items.some((r: { id: string }) => r.id === id1)).toBe(true);
     expect(qList.body.items.some((r: { id: string }) => r.id === id2)).toBe(false);
 
+    // Test combination of department, ward, and q filters
+    const comboList = await request(app.server)
+      .get('/api/v1/reports?department=ROADS&ward=WARD-001&q=pothole')
+      .set('Authorization', `Bearer ${tokenOfficer}`);
+    expect(comboList.status).toBe(200);
+    expect(comboList.body.items.some((r: { id: string }) => r.id === id1)).toBe(true);
+    expect(comboList.body.items.some((r: { id: string }) => r.id === id2)).toBe(false);
+
+    const noComboList = await request(app.server)
+      .get('/api/v1/reports?department=WATER&ward=WARD-001&q=pothole')
+      .set('Authorization', `Bearer ${tokenOfficer}`);
+    expect(noComboList.status).toBe(200);
+    expect(noComboList.body.items.some((r: { id: string }) => r.id === id1)).toBe(false);
+
+    // q is parameterised and treats %, _, and quotes literally
+    const special1 = crypto.randomUUID();
+    const special2 = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO reports (id, reporter_id, title, description, category_slug, lat, lng, status, version, created_at, updated_at)
+       VALUES ($1, $3, 'Fix 100% of _broken_ "lights"', 'desc', 'pothole', 23.0, 72.0, 'Submitted', 1, NOW(), NOW()),
+              ($2, $3, 'Fix 1000 of abrokenb lights', 'desc', 'pothole', 23.0, 72.0, 'Submitted', 1, NOW(), NOW())`,
+      [special1, special2, citizen]
+    );
+
+    const pctSearch = await request(app.server)
+      .get('/api/v1/reports?q=100%25')
+      .set('Authorization', `Bearer ${tokenOfficer}`);
+    expect(pctSearch.status).toBe(200);
+    expect(pctSearch.body.items.some((r: { id: string }) => r.id === special1)).toBe(true);
+    expect(pctSearch.body.items.some((r: { id: string }) => r.id === special2)).toBe(false);
+
+    const usSearch = await request(app.server)
+      .get('/api/v1/reports?q=_broken_')
+      .set('Authorization', `Bearer ${tokenOfficer}`);
+    expect(usSearch.status).toBe(200);
+    expect(usSearch.body.items.some((r: { id: string }) => r.id === special1)).toBe(true);
+    expect(usSearch.body.items.some((r: { id: string }) => r.id === special2)).toBe(false);
+
+    const quoteSearch = await request(app.server)
+      .get(`/api/v1/reports?q=${encodeURIComponent('"lights"')}`)
+      .set('Authorization', `Bearer ${tokenOfficer}`);
+    expect(quoteSearch.status).toBe(200);
+    expect(quoteSearch.body.items.some((r: { id: string }) => r.id === special1)).toBe(true);
+    expect(quoteSearch.body.items.some((r: { id: string }) => r.id === special2)).toBe(false);
+
+    // Pagination and sort whitelist
+    const pageRes = await request(app.server)
+      .get('/api/v1/reports?page=1&pageSize=1&sort=created_at:desc')
+      .set('Authorization', `Bearer ${tokenOfficer}`);
+    expect(pageRes.status).toBe(200);
+    expect(pageRes.body.items.length).toBe(1);
+    expect(pageRes.body.pagination.page).toBe(1);
+    expect(pageRes.body.pagination.pageSize).toBe(1);
+    expect(pageRes.body.pagination.total).toBeGreaterThanOrEqual(2);
+
+    const badSortRes = await request(app.server)
+      .get('/api/v1/reports?sort=password:asc')
+      .set('Authorization', `Bearer ${tokenOfficer}`);
+    expect(badSortRes.status).toBe(400);
+    expect(badSortRes.body.code).toBe('validation_error');
+
     // Verify response includes reporterId only and NOT reporter display name
     const sampleItem = deptList.body.items.find((r: { id: string }) => r.id === id1);
     expect(sampleItem).toHaveProperty('reporterId');

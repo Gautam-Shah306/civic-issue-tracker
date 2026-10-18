@@ -1,0 +1,68 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+/* Base styles enforcing design system */
+html {
+  font-family: var(--font-sans);
+  color-scheme: light;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-size: 16px;
+  line-height: 24px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* Control heights */
+.h-control-sm {
+  height: var(--control-h-sm);
+}
+
+.h-control {
+  height: var(--control-h);
+}
+
+.h-control-lg {
+  height: var(--control-h-lg);
+}
+
+/* Focus ring: 2px with 2px offset in text color */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+/* Content max width */
+.content-container {
+  max-width: 1152px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+/* Map responsive height */
+.h-map {
+  height: 24rem;
+}
+
+@media (min-width: 640px) {
+  .h-map {
+    height: 32.5rem;
+  }
+}
+
+/* Link style */
+.link {
+  color: var(--color-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link:hover {
+  color: var(--color-primary-hover);
+}

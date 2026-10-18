@@ -1,6 +1,6 @@
 # 04: Tech Stack and Data Stores
 
-> **Status:** Approved · **Last updated:** 2026-10-14
+> **Status:** Approved · **Last updated:** 2026-10-18
 > **Guiding rules:** free-tier first, as few moving parts as possible, polyglot by design (two languages).
 
 ---
@@ -94,6 +94,11 @@ MinIO stopped publishing binaries and Docker images in October 2025, went into m
   - **Database access & migrations:** psycopg 3 with connection pool (`psycopg_pool`), NO ORM; plain-SQL migrations via `python -m app.migrate` enforcing advisory lock, checksum validation, and `schema_migrations` tracking matching Node runner semantics.
   - **Messaging & security:** aio-pika with publisher confirms; PyJWT[crypto] with EdDSA only; jsonschema for event contract validation.
   - **Linting, formatting & testing:** Ruff (lint and format), pytest, pytest-cov with a 60% coverage gate, Testcontainers.
+- **Frontend conventions (D-048 and the design system decision D-049):**
+  - **Stack:** React 19 + TypeScript 6 + Vite + React Router + TanStack Query + Tailwind CSS 4 + Leaflet (react-leaflet).
+  - **Design tokens:** Single source of truth in `src/styles/tokens.css` with Tailwind 4 `@theme` block resetting defaults; 4 px base spacing, fixed typography scale with system sans-serif stack, control heights (32, 40, 48 px), semantic status colours only (no dark mode or theme switch).
+  - **Map & tiles:** OpenStreetMap tiles with attribution; coordinates stored to 4 decimal places with optional free-text address.
+  - **Component approach:** Custom accessible components consuming predefined design tokens; no third-party UI kits or heavy component libraries.
 
 ---
 
@@ -103,4 +108,3 @@ MinIO stopped publishing binaries and Docker images in October 2025, went into m
 |---|---|
 | Free-tier email service for the live demo | Phase 5 |
 | Re-measure SeaweedFS memory under load (idle about 63 MiB, D-033; Garage stays the fallback) | Phase 4 |
-| Frontend state, routing and UI component approach | Phase 1 |

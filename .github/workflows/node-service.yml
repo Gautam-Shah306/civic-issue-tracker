@@ -7,6 +7,11 @@ on:
         required: true
         type: string
         description: "Path of service under services/ (e.g. _template, auth)"
+      port:
+        required: false
+        type: number
+        default: 3000
+        description: "Port exposed by the service for smoke test (default 3000)"
 
 permissions: {}
 
@@ -19,6 +24,7 @@ jobs:
     env:
       SERVICE_PATH: services/${{ inputs.service }}
       SERVICE_NAME: ${{ inputs.service }}
+      SERVICE_PORT: ${{ inputs.port || 3000 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -92,12 +98,12 @@ jobs:
           if [ -f "services/${SERVICE_NAME}/ci.smoke.env" ]; then
             ENV_FILE_ARG="--env-file services/${SERVICE_NAME}/ci.smoke.env"
           fi
-          docker run -d --name "$CONTAINER_NAME" $ENV_FILE_ARG -e JWT_PRIVATE_KEY_B64 -e JWT_PUBLIC_KEY_B64 -p 3000:3000 "$IMAGE_TAG"
+          docker run -d --name "$CONTAINER_NAME" $ENV_FILE_ARG -e JWT_PRIVATE_KEY_B64 -e JWT_PUBLIC_KEY_B64 -p "${SERVICE_PORT}:${SERVICE_PORT}" "$IMAGE_TAG"
           
           echo "Polling /healthz..."
           SUCCESS=0
           for i in $(seq 1 30); do
-            if curl -fs http://127.0.0.1:3000/healthz > /dev/null 2>&1; then
+            if curl -fs "http://127.0.0.1:${SERVICE_PORT}/healthz" > /dev/null 2>&1; then
               echo "Healthcheck passed on attempt $i"
               SUCCESS=1
               break

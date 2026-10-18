@@ -1,0 +1,6 @@
+*
+!services/frontend
+!services/frontend/**
+services/frontend/node_modules
+services/frontend/dist
+services/frontend/coverage
