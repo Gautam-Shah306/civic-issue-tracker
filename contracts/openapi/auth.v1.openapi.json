@@ -296,6 +296,852 @@
           }
         }
       }
+    },
+    "/api/v1/auth/users": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "def",
+            "schema": {
+              "shape": {
+                "active": {
+                  "def": {
+                    "in": {
+                      "def": {
+                        "innerType": {
+                          "def": {
+                            "entries": {
+                              "false": "false",
+                              "true": "true"
+                            },
+                            "type": "enum"
+                          },
+                          "enum": {
+                            "false": "false",
+                            "true": "true"
+                          },
+                          "options": [
+                            "true",
+                            "false"
+                          ],
+                          "type": "enum"
+                        },
+                        "type": "optional"
+                      },
+                      "type": "optional"
+                    },
+                    "out": {
+                      "def": {
+                        "type": "transform"
+                      },
+                      "type": "transform"
+                    },
+                    "type": "pipe"
+                  },
+                  "in": {
+                    "def": {
+                      "innerType": {
+                        "def": {
+                          "entries": {
+                            "false": "false",
+                            "true": "true"
+                          },
+                          "type": "enum"
+                        },
+                        "enum": {
+                          "false": "false",
+                          "true": "true"
+                        },
+                        "options": [
+                          "true",
+                          "false"
+                        ],
+                        "type": "enum"
+                      },
+                      "type": "optional"
+                    },
+                    "type": "optional"
+                  },
+                  "out": {
+                    "def": {
+                      "type": "transform"
+                    },
+                    "type": "transform"
+                  },
+                  "type": "pipe"
+                },
+                "page": {
+                  "def": {
+                    "defaultValue": 1,
+                    "innerType": {
+                      "def": {
+                        "checks": [
+                          {
+                            "def": {
+                              "abort": false,
+                              "check": "number_format",
+                              "format": "safeint",
+                              "type": "number"
+                            },
+                            "isFinite": true,
+                            "type": "number"
+                          },
+                          {}
+                        ],
+                        "coerce": true,
+                        "type": "number"
+                      },
+                      "isFinite": true,
+                      "type": "number"
+                    },
+                    "type": "default"
+                  },
+                  "type": "default"
+                },
+                "pageSize": {
+                  "def": {
+                    "defaultValue": 20,
+                    "innerType": {
+                      "def": {
+                        "checks": [
+                          {
+                            "def": {
+                              "abort": false,
+                              "check": "number_format",
+                              "format": "safeint",
+                              "type": "number"
+                            },
+                            "isFinite": true,
+                            "type": "number"
+                          },
+                          {},
+                          {}
+                        ],
+                        "coerce": true,
+                        "type": "number"
+                      },
+                      "isFinite": true,
+                      "type": "number"
+                    },
+                    "type": "default"
+                  },
+                  "type": "default"
+                },
+                "q": {
+                  "def": {
+                    "innerType": {
+                      "def": {
+                        "checks": [
+                          {}
+                        ],
+                        "type": "string"
+                      },
+                      "type": "string"
+                    },
+                    "type": "optional"
+                  },
+                  "type": "optional"
+                },
+                "role": {
+                  "def": {
+                    "innerType": {
+                      "def": {
+                        "entries": {
+                          "admin": "admin",
+                          "citizen": "citizen",
+                          "officer": "officer"
+                        },
+                        "type": "enum"
+                      },
+                      "enum": {
+                        "admin": "admin",
+                        "citizen": "citizen",
+                        "officer": "officer"
+                      },
+                      "options": [
+                        "citizen",
+                        "officer",
+                        "admin"
+                      ],
+                      "type": "enum"
+                    },
+                    "type": "optional"
+                  },
+                  "type": "optional"
+                }
+              },
+              "type": "object"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "schema": "object"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "def": {
+                    "shape": {
+                      "items": {
+                        "def": {
+                          "element": {
+                            "def": {
+                              "shape": {
+                                "createdAt": {
+                                  "def": {
+                                    "type": "string"
+                                  },
+                                  "type": "string"
+                                },
+                                "displayName": {
+                                  "def": {
+                                    "type": "string"
+                                  },
+                                  "type": "string"
+                                },
+                                "email": {
+                                  "def": {
+                                    "type": "string"
+                                  },
+                                  "type": "string"
+                                },
+                                "id": {
+                                  "def": {
+                                    "checks": [
+                                      {
+                                        "def": {
+                                          "abort": false,
+                                          "check": "string_format",
+                                          "format": "uuid",
+                                          "pattern": {},
+                                          "type": "string"
+                                        },
+                                        "type": "string"
+                                      }
+                                    ],
+                                    "type": "string"
+                                  },
+                                  "type": "string"
+                                },
+                                "isActive": {
+                                  "def": {
+                                    "type": "boolean"
+                                  },
+                                  "type": "boolean"
+                                },
+                                "role": {
+                                  "def": {
+                                    "entries": {
+                                      "admin": "admin",
+                                      "citizen": "citizen",
+                                      "officer": "officer"
+                                    },
+                                    "type": "enum"
+                                  },
+                                  "enum": {
+                                    "admin": "admin",
+                                    "citizen": "citizen",
+                                    "officer": "officer"
+                                  },
+                                  "options": [
+                                    "citizen",
+                                    "officer",
+                                    "admin"
+                                  ],
+                                  "type": "enum"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "element": {
+                          "def": {
+                            "shape": {
+                              "createdAt": {
+                                "def": {
+                                  "type": "string"
+                                },
+                                "type": "string"
+                              },
+                              "displayName": {
+                                "def": {
+                                  "type": "string"
+                                },
+                                "type": "string"
+                              },
+                              "email": {
+                                "def": {
+                                  "type": "string"
+                                },
+                                "type": "string"
+                              },
+                              "id": {
+                                "def": {
+                                  "checks": [
+                                    {
+                                      "def": {
+                                        "abort": false,
+                                        "check": "string_format",
+                                        "format": "uuid",
+                                        "pattern": {},
+                                        "type": "string"
+                                      },
+                                      "type": "string"
+                                    }
+                                  ],
+                                  "type": "string"
+                                },
+                                "type": "string"
+                              },
+                              "isActive": {
+                                "def": {
+                                  "type": "boolean"
+                                },
+                                "type": "boolean"
+                              },
+                              "role": {
+                                "def": {
+                                  "entries": {
+                                    "admin": "admin",
+                                    "citizen": "citizen",
+                                    "officer": "officer"
+                                  },
+                                  "type": "enum"
+                                },
+                                "enum": {
+                                  "admin": "admin",
+                                  "citizen": "citizen",
+                                  "officer": "officer"
+                                },
+                                "options": [
+                                  "citizen",
+                                  "officer",
+                                  "admin"
+                                ],
+                                "type": "enum"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "pagination": {
+                        "def": {
+                          "shape": {
+                            "page": {
+                              "def": {
+                                "checks": [
+                                  {
+                                    "def": {
+                                      "abort": false,
+                                      "check": "number_format",
+                                      "format": "safeint",
+                                      "type": "number"
+                                    },
+                                    "isFinite": true,
+                                    "type": "number"
+                                  }
+                                ],
+                                "type": "number"
+                              },
+                              "isFinite": true,
+                              "type": "number"
+                            },
+                            "pageSize": {
+                              "def": {
+                                "checks": [
+                                  {
+                                    "def": {
+                                      "abort": false,
+                                      "check": "number_format",
+                                      "format": "safeint",
+                                      "type": "number"
+                                    },
+                                    "isFinite": true,
+                                    "type": "number"
+                                  }
+                                ],
+                                "type": "number"
+                              },
+                              "isFinite": true,
+                              "type": "number"
+                            },
+                            "total": {
+                              "def": {
+                                "checks": [
+                                  {
+                                    "def": {
+                                      "abort": false,
+                                      "check": "number_format",
+                                      "format": "safeint",
+                                      "type": "number"
+                                    },
+                                    "isFinite": true,
+                                    "type": "number"
+                                  }
+                                ],
+                                "type": "number"
+                              },
+                              "isFinite": true,
+                              "type": "number"
+                            },
+                            "totalPages": {
+                              "def": {
+                                "checks": [
+                                  {
+                                    "def": {
+                                      "abort": false,
+                                      "check": "number_format",
+                                      "format": "safeint",
+                                      "type": "number"
+                                    },
+                                    "isFinite": true,
+                                    "type": "number"
+                                  }
+                                ],
+                                "type": "number"
+                              },
+                              "isFinite": true,
+                              "type": "number"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "type": "object"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "def": {
+                  "checks": [
+                    {
+                      "def": {
+                        "check": "custom",
+                        "path": [
+                          "password"
+                        ],
+                        "type": "custom"
+                      },
+                      "type": "custom"
+                    }
+                  ],
+                  "shape": {
+                    "displayName": {
+                      "def": {
+                        "in": {
+                          "def": {
+                            "checks": [
+                              {},
+                              {}
+                            ],
+                            "type": "string"
+                          },
+                          "type": "string"
+                        },
+                        "out": {
+                          "def": {
+                            "type": "transform"
+                          },
+                          "type": "transform"
+                        },
+                        "type": "pipe"
+                      },
+                      "in": {
+                        "def": {
+                          "checks": [
+                            {},
+                            {}
+                          ],
+                          "type": "string"
+                        },
+                        "type": "string"
+                      },
+                      "out": {
+                        "def": {
+                          "type": "transform"
+                        },
+                        "type": "transform"
+                      },
+                      "type": "pipe"
+                    },
+                    "email": {
+                      "def": {
+                        "checks": [
+                          {
+                            "def": {
+                              "abort": false,
+                              "check": "string_format",
+                              "format": "email",
+                              "pattern": {},
+                              "type": "string"
+                            },
+                            "type": "string"
+                          },
+                          {}
+                        ],
+                        "type": "string"
+                      },
+                      "type": "string"
+                    },
+                    "password": {
+                      "def": {
+                        "checks": [
+                          {},
+                          {}
+                        ],
+                        "type": "string"
+                      },
+                      "type": "string"
+                    },
+                    "role": {
+                      "def": {
+                        "entries": {
+                          "admin": "admin",
+                          "citizen": "citizen",
+                          "officer": "officer"
+                        },
+                        "type": "enum"
+                      },
+                      "enum": {
+                        "admin": "admin",
+                        "citizen": "citizen",
+                        "officer": "officer"
+                      },
+                      "options": [
+                        "citizen",
+                        "officer",
+                        "admin"
+                      ],
+                      "type": "enum"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "def": {
+                    "shape": {
+                      "displayName": {
+                        "def": {
+                          "type": "string"
+                        },
+                        "type": "string"
+                      },
+                      "email": {
+                        "def": {
+                          "type": "string"
+                        },
+                        "type": "string"
+                      },
+                      "id": {
+                        "def": {
+                          "checks": [
+                            {
+                              "def": {
+                                "abort": false,
+                                "check": "string_format",
+                                "format": "uuid",
+                                "pattern": {},
+                                "type": "string"
+                              },
+                              "type": "string"
+                            }
+                          ],
+                          "type": "string"
+                        },
+                        "type": "string"
+                      },
+                      "isActive": {
+                        "def": {
+                          "type": "boolean"
+                        },
+                        "type": "boolean"
+                      },
+                      "role": {
+                        "def": {
+                          "entries": {
+                            "admin": "admin",
+                            "citizen": "citizen",
+                            "officer": "officer"
+                          },
+                          "type": "enum"
+                        },
+                        "enum": {
+                          "admin": "admin",
+                          "citizen": "citizen",
+                          "officer": "officer"
+                        },
+                        "options": [
+                          "citizen",
+                          "officer",
+                          "admin"
+                        ],
+                        "type": "enum"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/users/{id}": {
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "def",
+            "required": true,
+            "schema": {
+              "shape": {
+                "id": {
+                  "def": {
+                    "checks": [
+                      {
+                        "def": {
+                          "abort": false,
+                          "check": "string_format",
+                          "format": "uuid",
+                          "pattern": {},
+                          "type": "string"
+                        },
+                        "type": "string"
+                      }
+                    ],
+                    "type": "string"
+                  },
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          {
+            "in": "path",
+            "name": "type",
+            "required": true,
+            "schema": "object"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "def": {
+                  "checks": [
+                    {
+                      "def": {
+                        "check": "custom",
+                        "type": "custom"
+                      },
+                      "type": "custom"
+                    }
+                  ],
+                  "shape": {
+                    "displayName": {
+                      "def": {
+                        "innerType": {
+                          "def": {
+                            "in": {
+                              "def": {
+                                "checks": [
+                                  {},
+                                  {}
+                                ],
+                                "type": "string"
+                              },
+                              "type": "string"
+                            },
+                            "out": {
+                              "def": {
+                                "type": "transform"
+                              },
+                              "type": "transform"
+                            },
+                            "type": "pipe"
+                          },
+                          "in": {
+                            "def": {
+                              "checks": [
+                                {},
+                                {}
+                              ],
+                              "type": "string"
+                            },
+                            "type": "string"
+                          },
+                          "out": {
+                            "def": {
+                              "type": "transform"
+                            },
+                            "type": "transform"
+                          },
+                          "type": "pipe"
+                        },
+                        "type": "optional"
+                      },
+                      "type": "optional"
+                    },
+                    "isActive": {
+                      "def": {
+                        "innerType": {
+                          "def": {
+                            "type": "boolean"
+                          },
+                          "type": "boolean"
+                        },
+                        "type": "optional"
+                      },
+                      "type": "optional"
+                    },
+                    "role": {
+                      "def": {
+                        "innerType": {
+                          "def": {
+                            "entries": {
+                              "admin": "admin",
+                              "citizen": "citizen",
+                              "officer": "officer"
+                            },
+                            "type": "enum"
+                          },
+                          "enum": {
+                            "admin": "admin",
+                            "citizen": "citizen",
+                            "officer": "officer"
+                          },
+                          "options": [
+                            "citizen",
+                            "officer",
+                            "admin"
+                          ],
+                          "type": "enum"
+                        },
+                        "type": "optional"
+                      },
+                      "type": "optional"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "def": {
+                    "shape": {
+                      "displayName": {
+                        "def": {
+                          "type": "string"
+                        },
+                        "type": "string"
+                      },
+                      "email": {
+                        "def": {
+                          "type": "string"
+                        },
+                        "type": "string"
+                      },
+                      "id": {
+                        "def": {
+                          "checks": [
+                            {
+                              "def": {
+                                "abort": false,
+                                "check": "string_format",
+                                "format": "uuid",
+                                "pattern": {},
+                                "type": "string"
+                              },
+                              "type": "string"
+                            }
+                          ],
+                          "type": "string"
+                        },
+                        "type": "string"
+                      },
+                      "isActive": {
+                        "def": {
+                          "type": "boolean"
+                        },
+                        "type": "boolean"
+                      },
+                      "role": {
+                        "def": {
+                          "entries": {
+                            "admin": "admin",
+                            "citizen": "citizen",
+                            "officer": "officer"
+                          },
+                          "type": "enum"
+                        },
+                        "enum": {
+                          "admin": "admin",
+                          "citizen": "citizen",
+                          "officer": "officer"
+                        },
+                        "options": [
+                          "citizen",
+                          "officer",
+                          "admin"
+                        ],
+                        "type": "enum"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Default Response"
+          }
+        }
+      }
     }
   }
 }

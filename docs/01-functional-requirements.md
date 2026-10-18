@@ -1,6 +1,6 @@
 # 01: Functional Requirements
 
-> **Status:** Approved · **Last updated:** 2026-10-16
+> **Status:** Approved · **Last updated:** 2026-10-18
 > **Scope rule:** implement all **[Core]** and **[Should]** items. **[Optional]** items stay open and are built later only if the need arises.
 
 Each requirement has an ID. Use the ID in prompts, commits, tests and pull requests.
@@ -145,6 +145,7 @@ Each requirement has an ID. Use the ID in prompts, commits, tests and pull reque
 - **Data is synthetic.** Wards, departments, categories, users and reports are generated (see `11`). No real ward data is used.
 - **If time runs short**, **[Should]** items are dropped in the order given in `11-scope-and-phases.md` section 5. Core items are never dropped.
 - v2 candidates are listed in D-039 (docs/12).
+- Admin user management and officer creation (AUTH-07, DSH-07) are implemented in v1 through the Auth service (D-048).
 
 ## Deferred decisions
 

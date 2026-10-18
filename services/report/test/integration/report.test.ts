@@ -369,6 +369,46 @@ describe('Report Service Integration Tests (Testcontainers PostGIS & RabbitMQ)',
     expect(officerList.status).toBe(200);
     expect(officerList.body).toHaveProperty('items');
     expect(officerList.body).toHaveProperty('pagination');
+
+    // Test department, ward, and q filters
+    const id1 = crypto.randomUUID();
+    const id2 = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO reports (id, reporter_id, title, description, category_slug, lat, lng, status, version, ward_code, department_code, created_at, updated_at)
+       VALUES ($1, $3, 'Dangerous deep pothole on road', 'desc', 'pothole', 23.0, 72.0, 'Submitted', 1, 'WARD-001', 'ROADS', NOW(), NOW()),
+              ($2, $3, 'Broken water pipeline leaking', 'desc', 'water-leak', 23.1, 72.1, 'Submitted', 1, 'WARD-002', 'WATER', NOW(), NOW())`,
+      [id1, id2, citizen]
+    );
+
+    // Test department filter
+    const deptList = await request(app.server)
+      .get('/api/v1/reports?department=ROADS')
+      .set('Authorization', `Bearer ${tokenOfficer}`);
+    expect(deptList.status).toBe(200);
+    expect(deptList.body.items.some((r: { id: string }) => r.id === id1)).toBe(true);
+    expect(deptList.body.items.some((r: { id: string }) => r.id === id2)).toBe(false);
+
+    // Test ward filter
+    const wardList = await request(app.server)
+      .get('/api/v1/reports?ward=WARD-002')
+      .set('Authorization', `Bearer ${tokenOfficer}`);
+    expect(wardList.status).toBe(200);
+    expect(wardList.body.items.some((r: { id: string }) => r.id === id2)).toBe(true);
+    expect(wardList.body.items.some((r: { id: string }) => r.id === id1)).toBe(false);
+
+    // Test q search filter (case-insensitive substring)
+    const qList = await request(app.server)
+      .get('/api/v1/reports?q=POTHOLE')
+      .set('Authorization', `Bearer ${tokenOfficer}`);
+    expect(qList.status).toBe(200);
+    expect(qList.body.items.some((r: { id: string }) => r.id === id1)).toBe(true);
+    expect(qList.body.items.some((r: { id: string }) => r.id === id2)).toBe(false);
+
+    // Verify response includes reporterId only and NOT reporter display name
+    const sampleItem = deptList.body.items.find((r: { id: string }) => r.id === id1);
+    expect(sampleItem).toHaveProperty('reporterId');
+    expect(sampleItem).not.toHaveProperty('reporterDisplayName');
+    expect(sampleItem).not.toHaveProperty('displayName');
   });
 
   it('exercises full lifecycle of status transitions via API with authorization and rejection rules', async () => {

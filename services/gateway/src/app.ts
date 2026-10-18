@@ -268,16 +268,13 @@ export async function buildApp(config: Config, deps: AppDependencies = {}) {
   app.post('/api/v1/auth/register', proxyTo(config.AUTH_SERVICE_URL));
   app.post('/api/v1/auth/login', proxyTo(config.AUTH_SERVICE_URL));
   app.post('/api/v1/auth/refresh', proxyTo(config.AUTH_SERVICE_URL));
+  app.post('/api/v1/auth/logout', proxyTo(config.AUTH_SERVICE_URL));
   app.get('/.well-known/jwks.json', proxyTo(config.AUTH_SERVICE_URL));
+  app.get('/api/v1/auth/jwks.json', proxyTo(config.AUTH_SERVICE_URL));
 
-  // Auth Service - Authenticated
-  app.post(
-    '/api/v1/auth/logout',
-    { preHandler: [jwtVerifier.requireAuth] },
-    proxyTo(config.AUTH_SERVICE_URL)
-  );
-  app.get(
-    '/api/v1/auth/me',
+  // Auth Service - Authenticated (all other /api/v1/auth routes require a JWT; service enforces admin)
+  app.all(
+    '/api/v1/auth/*',
     { preHandler: [jwtVerifier.requireAuth] },
     proxyTo(config.AUTH_SERVICE_URL)
   );

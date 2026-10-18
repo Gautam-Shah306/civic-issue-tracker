@@ -1,6 +1,6 @@
 # PROGRESS: Civic Issue Tracker
 
-> **Last updated:** 2026-10-14
+> **Last updated:** 2026-10-18
 > Updated manually by the developer from lines supplied by Claude after each verified step.
 > Paste the **Status** block into a new chat if the uploaded copy may be stale.
 
@@ -10,7 +10,7 @@
 - **Last verified step:** v1 cycle 4b: Image service + photo pipeline + verify-and-repair 4a (D-047)
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
 - **Cloud account:** not created (by design; created in Phase 5)
-- **Next action:** v1 cycle 5: Web Frontend + backend gaps
+- **Next action:** Prompt 2: frontend A
 
 ## v1 plan (D-039)
 
@@ -106,3 +106,5 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 | 2026-10-14 | Cycle 3b: dependency repair and review fixes (D-042) | Phase 1 exit test verified (local) |
 | 2026-10-14 | Cycle 3c: analytics CI race fix, notification timeout rule, zero-lint, grouped Dependabot (D-043) | Verified |
 | 2026-10-14 | v1 cycle 4a: Python base + Routing + automatic assignment (D-044, D-045, D-046) | Verified |
+| 2026-10-16 | v1 cycle 4b: Image service + photo pipeline (D-047) | Verified |
+| 2026-10-18 | Prompt 1: backend completion, admin bootstrap, seed & e2e (D-048) | Verified |

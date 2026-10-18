@@ -46,6 +46,19 @@ docker compose -f deploy/compose/docker-compose.yml --profile app down
 docker compose -f deploy/compose/docker-compose.yml down -v
 ```
 
+### Bootstrap Admin Credentials
+To view the generated credentials for the bootstrap administrator on explicit request, run `.\deploy\compose\show-admin-credentials.ps1` in PowerShell. This reads `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` from `.env` and prints them once to your local terminal session. Never commit, paste, or share these credentials.
+
+### Tools and Seed Scripts (Profile `tools`)
+To run the automated end-to-end integration test against the running Compose stack:
+```powershell
+docker compose -f deploy/compose/docker-compose.yml --profile app --profile tools run --rm e2e
+```
+To seed demo data (department officers, demo citizens, and sample reports across wards and categories):
+```powershell
+docker compose -f deploy/compose/docker-compose.yml --profile app --profile tools run --rm seed
+```
+
 ## Ports
 All exposed services bind strictly to `127.0.0.1` locally:
 | Service | Port | Description |

@@ -11,11 +11,12 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    # Major upgrades are manual decisions (Node 25 is not LTS; TypeScript 7 is blocked by the typescript-eslint peer range; @types/node must match the Node 24 runtime; infrastructure image majors need a data plan)
+    # Infrastructure image upgrades (Postgres, RabbitMQ, Redis, SeaweedFS, Mailpit) are manual decisions that need a data plan; only patch updates are proposed
     ignore:
       - dependency-name: "*"
         update-types:
           - "version-update:semver-major"
+          - "version-update:semver-minor"
     open-pull-requests-limit: 5
 
   - package-ecosystem: "github-actions"
@@ -76,10 +77,17 @@ updates:
           - "minor"
           - "patch"
     # Major upgrades are manual decisions (Node 25 is not LTS; TypeScript 7 is blocked by the typescript-eslint peer range; @types/node must match the Node 24 runtime; infrastructure image majors need a data plan)
+    # Python and uv minor upgrades are manual decisions (Python 3.13 matches the distroless runtime and the site-packages path in the Dockerfiles; uv 0.x minors can change the lock format)
     ignore:
       - dependency-name: "*"
         update-types:
           - "version-update:semver-major"
+      - dependency-name: "python"
+        update-types:
+          - "version-update:semver-minor"
+      - dependency-name: "ghcr.io/astral-sh/uv"
+        update-types:
+          - "version-update:semver-minor"
     open-pull-requests-limit: 5
 
   - package-ecosystem: "uv"

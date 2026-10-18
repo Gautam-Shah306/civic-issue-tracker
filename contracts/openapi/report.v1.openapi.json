@@ -214,6 +214,18 @@
                   },
                   "type": "optional"
                 },
+                "department": {
+                  "def": {
+                    "innerType": {
+                      "def": {
+                        "type": "string"
+                      },
+                      "type": "string"
+                    },
+                    "type": "optional"
+                  },
+                  "type": "optional"
+                },
                 "from": {
                   "def": {
                     "innerType": {
@@ -296,6 +308,21 @@
                     "type": "default"
                   },
                   "type": "default"
+                },
+                "q": {
+                  "def": {
+                    "innerType": {
+                      "def": {
+                        "checks": [
+                          {}
+                        ],
+                        "type": "string"
+                      },
+                      "type": "string"
+                    },
+                    "type": "optional"
+                  },
+                  "type": "optional"
                 },
                 "sort": {
                   "def": {
@@ -388,6 +415,18 @@
                             "type": "string"
                           }
                         ],
+                        "type": "string"
+                      },
+                      "type": "string"
+                    },
+                    "type": "optional"
+                  },
+                  "type": "optional"
+                },
+                "ward": {
+                  "def": {
+                    "innerType": {
+                      "def": {
                         "type": "string"
                       },
                       "type": "string"

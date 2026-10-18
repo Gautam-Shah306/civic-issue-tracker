@@ -1081,6 +1081,74 @@ describe('Analytics & Audit Service Integration Tests (Testcontainers)', () => {
     await consumers.stop();
   });
 
+  it('audit consumer records user.updated in audit_log with subject_type user and admin as actor', async () => {
+    const logger = createLogger({ serviceName: 'test-analytics-user-updated', level: 'silent' });
+    const validator = createEventValidator(config);
+    const consumers = createAnalyticsConsumers({
+      config,
+      pool: rwPool,
+      rabbitClient,
+      validator,
+      logger
+    });
+    await consumers.start();
+
+    const targetUserId = crypto.randomUUID();
+    const adminId = crypto.randomUUID();
+    const eventId = crypto.randomUUID();
+    const occurredAt = new Date().toISOString();
+
+    const pub = rabbitClient.createPublisher({ confirms: true });
+    await pub.send(
+      { exchange: 'civic.events', routingKey: 'user.updated' },
+      {
+        eventId,
+        eventType: 'user.updated',
+        version: 1,
+        occurredAt,
+        correlationId: crypto.randomUUID(),
+        payload: {
+          userId: targetUserId,
+          changedBy: adminId,
+          changes: {
+            role: 'officer',
+            displayName: 'Officer John'
+          },
+          updatedAt: occurredAt
+        }
+      }
+    );
+
+    const auditRow = await pollUntil(async () => {
+      const res = await rwPool.query<{
+        event_type: string;
+        subject_type: string;
+        subject_id: string;
+        actor: string;
+      }>('SELECT * FROM audit_log WHERE event_id = $1', [eventId]);
+      return res.rows.length > 0 ? res.rows[0] : null;
+    });
+
+    expect(auditRow).not.toBeNull();
+    expect(auditRow.event_type).toBe('user.updated');
+    expect(auditRow.subject_type).toBe('user');
+    expect(auditRow.subject_id).toBe(targetUserId);
+    expect(auditRow.actor).toBe(adminId);
+
+    // Also query via GET /api/v1/analytics/audit
+    const adminToken = await createJwt(adminId, 'admin');
+    const auditApiRes = await request(app.server)
+      .get('/api/v1/analytics/audit?eventType=user.updated')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(auditApiRes.status).toBe(200);
+    expect(
+      auditApiRes.body.items.some((item: { eventId: string }) => item.eventId === eventId)
+    ).toBe(true);
+
+    await consumers.stop();
+  });
+
   it('matches committed contracts/openapi/analytics.v1.openapi.json (OpenAPI drift test)', () => {
     const candidatePaths = [
       resolve(process.cwd(), 'contracts/openapi/analytics.v1.openapi.json'),

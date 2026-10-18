@@ -55,7 +55,7 @@ Event schemas evolve according to strict backward and forward compatibility rule
   - Durability: `durable: true`
   - Auto-delete: `false`
   - Purpose: Decoupled pub/sub event exchange for all domain events across services.
-- **Routing Key:** The event routing key matches `eventType` verbatim (e.g., `user.created`, `report.submitted`, `report.status-changed`).
+- **Routing Key:** The event routing key matches `eventType` verbatim (e.g., `user.created`, `user.updated`, `report.submitted`, `report.assigned`, `report.status-changed`, `category.upserted`, `image.processed`).
 - **Dead-Letter Exchange (DLX):** `civic.dlx`
   - Type: `direct`
   - Durability: `durable: true`
@@ -127,6 +127,13 @@ Each consumer service declares one quorum queue per business event flow that it 
    - Dead-letter exchange: `x-dead-letter-exchange: civic.dlx`
    - Dead-letter routing key: `report.image-processed.dlq`
    - Delivery limit: `x-delivery-limit: 5`
+10. **`analytics.audit`**
+   - Type: `quorum` (`x-queue-type: quorum`)
+   - Durability: `durable: true`
+   - Bound to: `civic.events` with routing key `#` (wildcard capturing all events, including `user.created`, `user.updated`, `report.submitted`, `report.assigned`, `report.status-changed`, `category.upserted`, `image.processed`)
+   - Dead-letter exchange: `x-dead-letter-exchange: civic.dlx`
+   - Dead-letter routing key: `analytics.audit.dlq`
+   - Delivery limit: `x-delivery-limit: 5`
 
 ### Dead-Letter Queues (DLQ)
 For each quorum queue, a corresponding dead-letter queue is declared:
@@ -139,6 +146,7 @@ For each quorum queue, a corresponding dead-letter queue is declared:
 - `report.category-upserted.dlq` bound to `civic.dlx` with routing key `report.category-upserted.dlq`.
 - `report.image-processed.dlq` bound to `civic.dlx` with routing key `report.image-processed.dlq`.
 - `analytics.stats.dlq` bound to `civic.dlx` with routing key `analytics.stats.dlq`.
+- `analytics.audit.dlq` bound to `civic.dlx` with routing key `analytics.audit.dlq`.
 
 ### Broker Behavior & Reliability Controls
 - **Publisher Confirms:** All publishers enable publisher confirms. A message is considered published only once the broker acknowledges receipt.

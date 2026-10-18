@@ -13,6 +13,7 @@ addFormats(ajv);
 const schemas = [
   'events/envelope.v1.schema.json',
   'events/user.created.v1.schema.json',
+  'events/user.updated.v1.schema.json',
   'events/report.submitted.v1.schema.json',
   'events/report.status-changed.v1.schema.json',
   'events/report.assigned.v1.schema.json',
@@ -31,6 +32,7 @@ for (const relPath of schemas) {
 // Compile target schemas
 const envelopeValidator = ajv.getSchema('events/envelope.v1.schema.json');
 const userCreatedValidator = ajv.getSchema('events/user.created.v1.schema.json');
+const userUpdatedValidator = ajv.getSchema('events/user.updated.v1.schema.json');
 const reportSubmittedValidator = ajv.getSchema('events/report.submitted.v1.schema.json');
 const reportStatusChangedValidator = ajv.getSchema('events/report.status-changed.v1.schema.json');
 const reportAssignedValidator = ajv.getSchema('events/report.assigned.v1.schema.json');
@@ -88,6 +90,7 @@ function runTest(exampleRelPath, validator, expectPass, isEvent = false) {
 
 console.log('\nValidating event examples:');
 runTest('events/examples/user.created.valid.json', userCreatedValidator, true, true);
+runTest('events/examples/user.updated.valid.json', userUpdatedValidator, true, true);
 runTest('events/examples/report.submitted.valid.json', reportSubmittedValidator, true, true);
 runTest('events/examples/report.status-changed.valid.json', reportStatusChangedValidator, true, true);
 runTest('events/examples/report.assigned.valid.json', reportAssignedValidator, true, true);
@@ -100,6 +103,7 @@ runTest('openapi/examples/problem.valid.json', problemValidator, true, false);
 console.log('\nValidating negative / invalid examples:');
 runTest('events/examples/report.submitted.invalid-missing-correlation.json', reportSubmittedValidator, false, true);
 runTest('events/examples/user.created.invalid-extra-field.json', userCreatedValidator, false, true);
+runTest('events/examples/user.updated.invalid.json', userUpdatedValidator, false, true);
 runTest('events/examples/report.assigned.invalid.json', reportAssignedValidator, false, true);
 runTest('events/examples/category.upserted.invalid.json', categoryUpsertedValidator, false, true);
 runTest('events/examples/report.submitted.invalid-event-version.json', reportSubmittedValidator, false, true);

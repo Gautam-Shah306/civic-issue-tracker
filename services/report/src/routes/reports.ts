@@ -66,6 +66,9 @@ const paginationQuerySchema = z.object({
 const listOfficerQuerySchema = paginationQuerySchema.extend({
   status: reportStatusEnum.optional(),
   category: z.string().optional(),
+  department: z.string().optional(),
+  ward: z.string().optional(),
+  q: z.string().max(100).optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional()
 });
@@ -128,6 +131,7 @@ export const reportsRoutes: FastifyPluginAsync<ReportsRouteOptions> = async (fas
               url: `/api/v1/images/${r.imageId}/file`
             }));
 
+            reply.header('x-idempotent-replay', 'true');
             await client.query('COMMIT');
             return reply.status(201).send({
               ...repRes.rows[0],
@@ -378,7 +382,8 @@ export const reportsRoutes: FastifyPluginAsync<ReportsRouteOptions> = async (fas
         });
       }
 
-      const { page, pageSize, sort, status, category, from, to } = request.query;
+      const { page, pageSize, sort, status, category, department, ward, q, from, to } =
+        request.query;
       const offset = (page - 1) * pageSize;
 
       const [sortCol, sortDir] = sort.split(':');
@@ -394,6 +399,19 @@ export const reportsRoutes: FastifyPluginAsync<ReportsRouteOptions> = async (fas
       if (category) {
         params.push(category);
         conditions.push(`category_slug = $${params.length}`);
+      }
+      if (department) {
+        params.push(department);
+        conditions.push(`department_code = $${params.length}`);
+      }
+      if (ward) {
+        params.push(ward);
+        conditions.push(`ward_code = $${params.length}`);
+      }
+      if (q && q.trim().length > 0) {
+        const escapedQ = q.trim().replace(/[%_\\]/g, '\\$&');
+        params.push(`%${escapedQ}%`);
+        conditions.push(`title ILIKE $${params.length}`);
       }
       if (from) {
         params.push(from);

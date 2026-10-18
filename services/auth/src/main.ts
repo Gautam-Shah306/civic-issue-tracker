@@ -4,6 +4,8 @@ import { loadConfig } from './config.js';
 import { createLogger } from './logger.js';
 import { buildApp } from './app.js';
 import { createOutboxRelay } from './outbox/relay.js';
+import { bootstrapAdmin } from './auth/bootstrap.js';
+import { createEventValidator } from './events/validator.js';
 
 const config = loadConfig();
 const logger = createLogger({
@@ -42,8 +44,10 @@ const outboxRelay = createOutboxRelay({
 });
 
 async function main() {
+  const eventValidator = createEventValidator(config);
   const app = await buildApp(config, {
     pool,
+    eventValidator,
     isRabbitReady: () => isRabbitConnected
   });
 
@@ -58,6 +62,11 @@ async function main() {
 
   // Start outbox relay in background
   outboxRelay.start();
+
+  // Bootstrap admin in background startup
+  bootstrapAdmin(pool, config, logger, eventValidator).catch((err) => {
+    logger.error({ err }, 'Admin bootstrap failed');
+  });
 
   // Background connection verification with exponential backoff (1s to 30s)
   async function monitorDependencies() {

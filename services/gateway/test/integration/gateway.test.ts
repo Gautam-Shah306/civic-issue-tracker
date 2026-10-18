@@ -63,6 +63,18 @@ describe('Gateway Service Integration Tests', () => {
         .status(200)
         .send({ id: req.headers['x-user-id'], role: req.headers['x-user-role'] });
     });
+    authUpstream.get('/api/v1/auth/users', async (req, reply) => {
+      return reply.status(200).send({
+        items: [{ id: 'u-1', email: 'admin@civic.test' }],
+        receivedHeaders: req.headers
+      });
+    });
+    authUpstream.post('/api/v1/auth/users', async (req, reply) => {
+      return reply.status(201).send({
+        user: { id: 'u-created', ...(req.body as Record<string, unknown>) },
+        receivedHeaders: req.headers
+      });
+    });
     await authUpstream.listen({ port: 0, host: '127.0.0.1' });
     authPort = (authUpstream.server.address() as AddressInfo).port;
 
@@ -271,6 +283,15 @@ describe('Gateway Service Integration Tests', () => {
       expect(res.body.receivedHeaders['x-correlation-id']).toBeDefined();
     });
 
+    it('proxies public auth logout without requiring a token', async () => {
+      const res = await request(gatewayApp.server)
+        .post('/api/v1/auth/logout')
+        .send({ refreshToken: 'dummy-token' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+    });
+
     it('proxies public report listings preserving query parameters', async () => {
       const res = await request(gatewayApp.server)
         .get('/api/v1/public/reports?status=open&category=pothole')
@@ -284,6 +305,28 @@ describe('Gateway Service Integration Tests', () => {
   });
 
   describe('JWT Verification & Injected Identity', () => {
+    it('requires JWT on /api/v1/auth/users and /api/v1/analytics', async () => {
+      const resUsersNoToken = await request(gatewayApp.server).get('/api/v1/auth/users');
+      expect(resUsersNoToken.status).toBe(401);
+      expect(resUsersNoToken.body.code).toBe('unauthorized');
+
+      const resAnalyticsNoToken = await request(gatewayApp.server).get('/api/v1/analytics/summary');
+      expect(resAnalyticsNoToken.status).toBe(401);
+      expect(resAnalyticsNoToken.body.code).toBe('unauthorized');
+
+      // With valid token, both pass through to upstream
+      const adminToken = await createToken({ sub: 'admin-1', role: 'admin' });
+      const resUsersWithToken = await request(gatewayApp.server)
+        .get('/api/v1/auth/users')
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(resUsersWithToken.status).toBe(200);
+      expect(resUsersWithToken.body.items).toBeDefined();
+
+      const resAnalyticsWithToken = await request(gatewayApp.server)
+        .get('/api/v1/analytics/summary')
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(resAnalyticsWithToken.status).toBe(200);
+    });
     it('rejects unauthenticated requests to protected endpoints with 401 Problem Details', async () => {
       const res = await request(gatewayApp.server).post('/api/v1/reports').send({ title: 'test' });
 

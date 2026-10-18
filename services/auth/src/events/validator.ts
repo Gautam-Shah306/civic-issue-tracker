@@ -25,6 +25,7 @@ const addFormats = rawAddFormats as unknown as FormatsFunction;
 
 export interface EventValidator {
   validateUserCreated(event: unknown): void;
+  validateUserUpdated(event: unknown): void;
 }
 
 export function createEventValidator(config: Config): EventValidator {
@@ -52,19 +53,29 @@ export function createEventValidator(config: Config): EventValidator {
 
   const envelopePath = join(eventsDir, 'envelope.v1.schema.json');
   const userCreatedPath = join(eventsDir, 'user.created.v1.schema.json');
+  const userUpdatedPath = join(eventsDir, 'user.updated.v1.schema.json');
 
   const envelopeSchema = JSON.parse(readFileSync(envelopePath, 'utf8'));
   const userCreatedSchema = JSON.parse(readFileSync(userCreatedPath, 'utf8'));
+  const userUpdatedSchema = JSON.parse(readFileSync(userUpdatedPath, 'utf8'));
 
   ajv.addSchema(envelopeSchema, 'envelope.v1.schema.json');
-  const validate = ajv.compile(userCreatedSchema);
+  const validateCreated = ajv.compile(userCreatedSchema);
+  const validateUpdated = ajv.compile(userUpdatedSchema);
 
   return {
     validateUserCreated(event: unknown) {
-      const valid = validate(event);
+      const valid = validateCreated(event);
       if (!valid) {
-        const errorMsg = ajv.errorsText(validate.errors, { separator: '; ' });
+        const errorMsg = ajv.errorsText(validateCreated.errors, { separator: '; ' });
         throw new Error(`Invalid user.created event: ${errorMsg}`);
+      }
+    },
+    validateUserUpdated(event: unknown) {
+      const valid = validateUpdated(event);
+      if (!valid) {
+        const errorMsg = ajv.errorsText(validateUpdated.errors, { separator: '; ' });
+        throw new Error(`Invalid user.updated event: ${errorMsg}`);
       }
     }
   };

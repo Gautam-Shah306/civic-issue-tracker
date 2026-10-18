@@ -182,6 +182,8 @@ services:
       DB_PASSWORD: ${AUTH_DB_PASSWORD:?Auth DB password is required}
       RABBITMQ_URL: amqp://${RABBITMQ_USER:?RabbitMQ user is required}:${RABBITMQ_PASSWORD:?RabbitMQ password is required}@rabbitmq:5672
       JWT_PRIVATE_KEY_B64: ${JWT_PRIVATE_KEY_B64:?JWT private key is required}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?Bootstrap admin email is required}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Bootstrap admin password is required}
       CONTRACTS_DIR: /app/contracts
       ARGON2_ITERATIONS: 1
     healthcheck:
@@ -573,6 +575,51 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    networks:
+      - civic
+    security_opt:
+      - no-new-privileges:true
+
+  e2e:
+    profiles:
+      - tools
+    image: node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+    restart: "no"
+    command: ["node", "/tools/e2e/e2e.mjs"]
+    depends_on:
+      gateway:
+        condition: service_healthy
+      notification:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    environment:
+      BASE_URL: http://gateway:3000
+      ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?Bootstrap admin email is required}
+      ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Bootstrap admin password is required}
+      MAILPIT_URL: http://mailpit:8025
+    volumes:
+      - ../../tools:/tools:ro
+    networks:
+      - civic
+    security_opt:
+      - no-new-privileges:true
+
+  seed:
+    profiles:
+      - tools
+    image: node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+    restart: "no"
+    command: ["node", "/tools/seed/seed.mjs"]
+    depends_on:
+      gateway:
+        condition: service_healthy
+    environment:
+      BASE_URL: http://gateway:3000
+      ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?Bootstrap admin email is required}
+      ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Bootstrap admin password is required}
+    volumes:
+      - ../../tools:/tools:ro
     networks:
       - civic
     security_opt:
