@@ -1,4 +1,4 @@
-# Civic Issue Tracker
+# NagrikSetu (Civic Issue Tracker), live at nagriksetu.duckdns.org (planned)
 
 A platform for tracking and managing civic issues efficiently. 
 
