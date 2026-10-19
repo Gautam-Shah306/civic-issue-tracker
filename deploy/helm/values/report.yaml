@@ -1,0 +1,64 @@
+service:
+  name: report
+  port: 3000
+
+image:
+  repository: ghcr.io/gautam-shah306/civic-report
+
+replicas: 2
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+env:
+  PORT: "3000"
+  DB_HOST: postgres.civic-data.svc.cluster.local
+  DB_PORT: "5432"
+  DB_NAME: civic_report
+  DB_USER: civic_report
+  CONTRACTS_DIR: /app/contracts
+
+secretEnv:
+  - name: DB_PASSWORD
+    secretName: report-secrets
+    key: DB_PASSWORD
+  - name: RABBITMQ_URL
+    secretName: report-secrets
+    key: RABBITMQ_URL
+  - name: JWT_PUBLIC_KEY_B64
+    secretName: jwt-public
+    key: JWT_PUBLIC_KEY_B64
+
+migrate:
+  enabled: true
+  args:
+    - dist/migrate.js
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+networkPolicy:
+  allowFrom:
+    - gateway
+  allowTo:
+    - postgres
+    - rabbitmq

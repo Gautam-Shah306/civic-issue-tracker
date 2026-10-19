@@ -1,0 +1,63 @@
+service:
+  name: routing
+  port: 8000
+
+image:
+  repository: ghcr.io/gautam-shah306/civic-routing
+
+replicas: 1
+
+pdb:
+  enabled: false
+
+hpa:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+env:
+  PORT: "8000"
+  DB_HOST: postgres.civic-data.svc.cluster.local
+  DB_PORT: "5432"
+  DB_NAME: civic_routing
+  DB_USER: civic_routing
+  CONTRACTS_DIR: /app/contracts
+  JWT_ISSUER: civic-auth
+  JWT_AUDIENCE: civic-api
+
+secretEnv:
+  - name: DB_PASSWORD
+    secretName: routing-secrets
+    key: DB_PASSWORD
+  - name: RABBITMQ_URL
+    secretName: routing-secrets
+    key: RABBITMQ_URL
+  - name: JWT_PUBLIC_KEY_B64
+    secretName: jwt-public
+    key: JWT_PUBLIC_KEY_B64
+
+migrate:
+  enabled: true
+  args:
+    - "-m"
+    - app.migrate
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+networkPolicy:
+  allowFrom:
+    - gateway
+  allowTo:
+    - postgres
+    - rabbitmq

@@ -104,5 +104,5 @@ These are estimates. They are replaced by measured numbers in Phase 3 and Phase 
 
 | Decision | Settle in |
 |---|---|
-| Local Kubernetes tool for rehearsals (k3s or kind) | Phase 3 |
+| Local Kubernetes tool for rehearsals | Settled: none locally (D-051); kind runs in CI (D-053) |
 | `linux/arm64` builds (only if needed) | Phase 3 or later |

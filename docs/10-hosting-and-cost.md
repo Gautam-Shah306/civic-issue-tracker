@@ -44,7 +44,7 @@
 2. **AWS Free Plan is the alternative.** The provider-agnostic Terraform design (`07`) makes it a one-module swap. Choose AWS instead if the live period needs to extend beyond GCP's 90 days.
 3. **Oracle Always Free is an emergency backup only**, used only if required.
 4. **Last-resort fallback:** the developer's own machine running k3s or kind behind a free tunnel (the URL changes on restart and it only works while the machine is on).
-5. **The cloud account is created last (Phase 5)** so the 90-day clock covers deployment, final checks and the live month.
+5. **The cloud account is created last (Phase 5)** so the 90-day clock covers deployment, final checks and the live month. (Timing superseded by D-039: the account is created at v1 cycle 8.)
 - Cloud account timing changed by D-039: created at the end of v1 (cycle 8).
 
 ## 4. Budget estimates (estimates only, check the pricing calculators)

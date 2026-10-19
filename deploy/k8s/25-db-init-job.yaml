@@ -1,0 +1,122 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-init
+  namespace: civic-data
+  labels:
+    app.kubernetes.io/name: db-init
+    app.kubernetes.io/part-of: civic-issue-tracker
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: db-init
+        app.kubernetes.io/part-of: civic-issue-tracker
+    spec:
+      restartPolicy: Never
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: db-init
+          image: postgis/postgis:18-3.6@sha256:60f6ad1d21ea86a67d47780b9a0d1e1d200500f62b19293fa834d0dea80b8677
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - /scripts/db-init.sh
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          env:
+            - name: POSTGRES_HOST
+              value: postgres
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-init-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-init-secrets
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: db-init-secrets
+                  key: POSTGRES_DB
+            - name: AUTH_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-init-secrets
+                  key: AUTH_DB_PASSWORD
+            - name: REPORT_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-init-secrets
+                  key: REPORT_DB_PASSWORD
+            - name: NOTIFICATION_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-init-secrets
+                  key: NOTIFICATION_DB_PASSWORD
+            - name: ANALYTICS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-init-secrets
+                  key: ANALYTICS_DB_PASSWORD
+            - name: ANALYTICS_RW_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-init-secrets
+                  key: ANALYTICS_RW_DB_PASSWORD
+            - name: ROUTING_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-init-secrets
+                  key: ROUTING_DB_PASSWORD
+            - name: IMAGE_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-init-secrets
+                  key: IMAGE_DB_PASSWORD
+          volumeMounts:
+            - name: init-script
+              mountPath: /scripts
+      volumes:
+        - name: init-script
+          configMap:
+            name: db-init-script
+            defaultMode: 0755
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-init-netpol
+  namespace: civic-data
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: db-init
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres
+      ports:
+        - protocol: TCP
+          port: 5432

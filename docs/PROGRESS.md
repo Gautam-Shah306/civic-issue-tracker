@@ -1,16 +1,16 @@
 # PROGRESS: Civic Issue Tracker
 
-> **Last updated:** 2026-10-18
+> **Last updated:** 2026-10-19
 > Updated manually by the developer from lines supplied by Claude after each verified step.
 > Paste the **Status** block into a new chat if the uploaded copy may be stale.
 
 ## Status
 
-- **Current phase:** Phase 1, Walking skeleton (in progress)
-- **Last verified step:** Prompt 2: frontend A (foundation, design system, public views, auth, citizen journey) (D-049)
+- **Current phase:** v1 cycle 6, Kubernetes manifests (D-039; the phases in `11` are superseded by the cycles below)
+- **Last verified step:** Prompt 3: frontend B (staff and admin views, frontend CI fix, backend test and routing gaps) (D-050); CI green on `main`
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
-- **Cloud account:** not created (by design; created in Phase 5)
-- **Next action:** Prompt 4: Helm chart and Kubernetes manifests
+- **Cloud account:** not created (by design; created in v1 cycle 8, D-039)
+- **Next action:** verify Prompt 4 (Helm chart and Kubernetes manifests, D-051 to D-053), then Prompt 5. Antigravity prompts used: 4 of 9
 
 ## v1 plan (D-039)
 
@@ -21,8 +21,8 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 - [x] Cycle 3: Notification + Analytics & Audit (Phase 1 exit test verified (local), D-041, D-042)
 - [x] Cycle 4: Python base + Image + Routing (D-044, D-045, D-046, D-047)
 - [x] Cycle 5: Web Frontend + backend gaps
-- [ ] Cycle 6: Local Kubernetes
-- [ ] Cycle 7: Pipeline and DevSecOps
+- [ ] Cycle 6: Kubernetes manifests (Helm chart, data stores, policies; render-checked only, no local cluster; D-051, D-052)
+- [ ] Cycle 7: Pipeline and DevSecOps (includes a minimal kind install in CI, D-053)
 - [ ] Cycle 8: Terraform and GCP
 - [ ] Cycle 9: Go-live finish
 - [ ] Cycle 10: Buffer
@@ -80,7 +80,6 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 ## Open items
 
 - All "Deferred decisions" sections in documents `01` to `11`
-- Raise the Docker Desktop VM memory limit (currently 3.757 GiB) before the Phase 3 local Kubernetes test
 - Scan the pinned third-party images (D-033) with Grype in Phase 3
 - Optional, later: verify the CI failure paths on GitHub with a throwaway branch and `workflow_dispatch`
 
@@ -109,4 +108,5 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 | 2026-10-16 | v1 cycle 4b: Image service + photo pipeline (D-047) | Verified |
 | 2026-10-18 | Prompt 1: backend completion, admin bootstrap, seed & e2e (D-048) | Verified |
 | 2026-10-18 | Prompt 2: frontend A (foundation, design system, public views, auth, citizen journey) (D-049) | Verified |
-| 2026-10-18 | Prompt 3: frontend B (staff and admin views, frontend CI fix, backend test & routing gaps) (D-050) | In progress |
+| 2026-10-18 | Prompt 3: frontend B (staff and admin views, frontend CI fix, backend test & routing gaps) (D-050) | Verified |
+| 2026-10-19 | Prompt 4: shared Helm chart and Kubernetes manifests (D-051, D-052, D-053) | In progress |

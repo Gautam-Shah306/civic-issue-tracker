@@ -1,0 +1,69 @@
+service:
+  name: auth
+  port: 3000
+
+image:
+  repository: ghcr.io/gautam-shah306/civic-auth
+
+# Gate: Part 0.7 answered "no" because bootstrapAdmin is not safe against concurrent start races;
+# replicas set to 1 per prompt gate instructions (documented under Deviations).
+replicas: 1
+
+pdb:
+  enabled: false
+  minAvailable: 1
+
+hpa:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+env:
+  PORT: "3000"
+  DB_HOST: postgres.civic-data.svc.cluster.local
+  DB_PORT: "5432"
+  DB_NAME: civic_auth
+  DB_USER: civic_auth
+  CONTRACTS_DIR: /app/contracts
+
+secretEnv:
+  - name: DB_PASSWORD
+    secretName: auth-secrets
+    key: DB_PASSWORD
+  - name: RABBITMQ_URL
+    secretName: auth-secrets
+    key: RABBITMQ_URL
+  - name: JWT_PRIVATE_KEY_B64
+    secretName: auth-secrets
+    key: JWT_PRIVATE_KEY_B64 # gitleaks:allow
+  - name: BOOTSTRAP_ADMIN_EMAIL
+    secretName: auth-secrets
+    key: BOOTSTRAP_ADMIN_EMAIL
+  - name: BOOTSTRAP_ADMIN_PASSWORD
+    secretName: auth-secrets
+    key: BOOTSTRAP_ADMIN_PASSWORD
+
+migrate:
+  enabled: true
+  args:
+    - dist/migrate.js
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+networkPolicy:
+  allowFrom:
+    - gateway
+  allowTo:
+    - postgres
+    - rabbitmq

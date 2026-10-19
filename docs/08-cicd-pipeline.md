@@ -71,7 +71,7 @@ The deploy job connects, runs `helm upgrade --install --atomic` from the shared 
 ## 8. Timing, given the late cloud sign-up
 
 - **CI, build, publish and the kind integration test work from day one**, with no cloud account.
-- **The deploy workflow is written early but tested only after the cloud sign-up** (Phase 5). Until then, deployment is rehearsed on a local k3s or kind cluster.
+- **The deploy workflow is written early but tested only after the cloud sign-up** (Phase 5). Until then, the chart is render-checked and installed on a temporary kind cluster in CI (D-051, D-053).
 
 ---
 

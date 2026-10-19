@@ -1,0 +1,121 @@
+{{- if .Values.env }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "civic-service.fullname" . }}-config
+  labels:
+    {{- include "civic-service.labels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+data:
+  {{- range $key, $val := .Values.env }}
+  {{ $key }}: {{ $val | quote }}
+  {{- end }}
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "civic-service.fullname" . }}
+  labels:
+    {{- include "civic-service.labels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+spec:
+  {{- if not .Values.hpa.enabled }}
+  replicas: {{ .Values.replicas | default 1 }}
+  {{- end }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "civic-service.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "civic-service.labels" . | nindent 8 }}
+        app.kubernetes.io/component: app
+      annotations:
+        checksum/config: {{ .Values.env | toYaml | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "civic-service.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.securityContext.runAsUser | default 65532 }}
+        runAsGroup: {{ .Values.securityContext.runAsGroup | default 65532 }}
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: {{ .Values.service.name }}
+          image: {{ include "civic-service.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: {{ .Values.resources.requests.cpu | default "50m" }}
+              memory: {{ .Values.resources.requests.memory | default "128Mi" }}
+            limits:
+              cpu: {{ .Values.resources.limits.cpu | default "500m" }}
+              memory: {{ .Values.resources.limits.memory | default "256Mi" }}
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
+          startupProbe:
+            httpGet:
+              path: {{ .Values.probes.startup.path | default "/healthz" }}
+              port: http
+            periodSeconds: {{ .Values.probes.startup.periodSeconds | default 2 }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold | default 30 }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path | default "/healthz" }}
+              port: http
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds | default 10 }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds | default 3 }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold | default 3 }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path | default "/readyz" }}
+              port: http
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds | default 5 }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds | default 3 }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold | default 3 }}
+          volumeMounts:
+            {{- range $i, $path := .Values.tmpPaths }}
+            - name: tmp-{{ $i }}
+              mountPath: {{ $path }}
+            {{- end }}
+          {{- if .Values.env }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "civic-service.fullname" . }}-config
+          {{- end }}
+          {{- if .Values.secretEnv }}
+          env:
+            {{- range $s := .Values.secretEnv }}
+            - name: {{ $s.name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $s.secretName }}
+                  key: {{ $s.key }}
+                  optional: {{ default false $s.optional }}
+            {{- end }}
+          {{- end }}
+      volumes:
+        {{- range $i, $path := .Values.tmpPaths }}
+        - name: tmp-{{ $i }}
+          emptyDir: {}
+        {{- end }}

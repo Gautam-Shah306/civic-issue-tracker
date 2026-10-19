@@ -1,0 +1,69 @@
+service:
+  name: notification
+  port: 3000
+
+image:
+  repository: ghcr.io/gautam-shah306/civic-notification
+
+replicas: 1
+
+pdb:
+  enabled: false
+
+hpa:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+env:
+  PORT: "3000"
+  DB_HOST: postgres.civic-data.svc.cluster.local
+  DB_PORT: "5432"
+  DB_NAME: civic_notification
+  DB_USER: civic_notification
+  CONTRACTS_DIR: /app/contracts
+  SMTP_HOST: mailpit.civic-data.svc.cluster.local
+  SMTP_PORT: "1025"
+  SMTP_FROM: notifications@civic.example.test
+
+secretEnv:
+  - name: DB_PASSWORD
+    secretName: notification-secrets
+    key: DB_PASSWORD
+  - name: RABBITMQ_URL
+    secretName: notification-secrets
+    key: RABBITMQ_URL
+  - name: SMTP_USER
+    secretName: notification-secrets
+    key: SMTP_USER
+    optional: true
+  - name: SMTP_PASSWORD
+    secretName: notification-secrets
+    key: SMTP_PASSWORD
+    optional: true
+
+migrate:
+  enabled: true
+  args:
+    - dist/migrate.js
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+networkPolicy:
+  allowFrom: []
+  allowTo:
+    - postgres
+    - rabbitmq
+    - mailpit
+  allowExternalPorts: []

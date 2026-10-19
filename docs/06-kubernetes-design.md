@@ -76,7 +76,7 @@
 
 ## 9. Packaging and deployment
 
-- **Helm: one shared chart** for all application services, with a small values file per service. Data stores and infrastructure get their own simple manifests.
+- **Helm: one shared chart** for all application services, with a small values file per service, deployed as one Helm release per service (D-052). Data stores and infrastructure get their own simple manifests.
 - **Deployment happens through CI/CD** (`helm upgrade --install --atomic` from GitHub Actions, see `08`).
 - **Argo CD / GitOps is not planned**, because its memory cost is not justified.
 
@@ -92,5 +92,5 @@
 | Backup destination off the VM | Phase 4 |
 | HPA thresholds (target CPU %, min/max) after load testing | Phase 4 |
 | Prometheus and Grafana retention and scrape settings | Phase 4 |
-| How operators reach RabbitMQ, SeaweedFS and Grafana (port-forward or restricted route) | Phase 3 |
-| Local Kubernetes rehearsal tool (k3s or kind) | Phase 3 |
+| How operators reach RabbitMQ, SeaweedFS and Grafana | Settled: `kubectl port-forward` (D-052) |
+| Local Kubernetes rehearsal tool | Settled: none locally (D-051); kind runs in CI (D-053) |

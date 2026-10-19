@@ -1,0 +1,77 @@
+service:
+  name: image
+  port: 8000
+
+image:
+  repository: ghcr.io/gautam-shah306/civic-image
+
+replicas: 1
+
+hpa:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 70
+
+pdb:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 768Mi
+
+env:
+  PORT: "8000"
+  DB_HOST: postgres.civic-data.svc.cluster.local
+  DB_PORT: "5432"
+  DB_NAME: civic_image
+  DB_USER: civic_image
+  CONTRACTS_DIR: /app/contracts
+  S3_ENDPOINT: http://seaweedfs.civic-data.svc.cluster.local:8333
+  AWS_REGION: us-east-1
+  INCOMING_BUCKET: civic-incoming
+  IMAGES_BUCKET: civic-images
+  JWT_ISSUER: civic-auth
+  JWT_AUDIENCE: civic-api
+
+secretEnv:
+  - name: DB_PASSWORD
+    secretName: image-secrets
+    key: DB_PASSWORD
+  - name: RABBITMQ_URL
+    secretName: image-secrets
+    key: RABBITMQ_URL
+  - name: AWS_ACCESS_KEY_ID
+    secretName: image-secrets
+    key: AWS_ACCESS_KEY_ID
+  - name: AWS_SECRET_ACCESS_KEY
+    secretName: image-secrets
+    key: AWS_SECRET_ACCESS_KEY
+  - name: JWT_PUBLIC_KEY_B64
+    secretName: jwt-public
+    key: JWT_PUBLIC_KEY_B64
+
+migrate:
+  enabled: true
+  args:
+    - "-m"
+    - app.migrate
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+networkPolicy:
+  allowFrom:
+    - gateway
+  allowTo:
+    - postgres
+    - rabbitmq
+    - seaweedfs

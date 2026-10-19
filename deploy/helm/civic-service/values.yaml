@@ -1,0 +1,74 @@
+service:
+  name: civic-service
+  port: 3000
+
+image:
+  repository: ghcr.io/gautam-shah306/civic-service
+  tag: default
+  digest: ""
+  pullPolicy: IfNotPresent
+
+securityContext:
+  runAsUser: 65532
+  runAsGroup: 65532
+
+tmpPaths:
+  - /tmp
+
+replicas: 1
+
+hpa:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 70
+
+pdb:
+  enabled: false
+  minAvailable: 1
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+probes:
+  startup:
+    path: /healthz
+    periodSeconds: 2
+    failureThreshold: 30
+  liveness:
+    path: /healthz
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    path: /readyz
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+env: {}
+
+secretEnv: []
+
+migrate:
+  enabled: false
+  args: []
+  env: {}
+  secretEnv: []
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+networkPolicy:
+  allowFrom: []
+  allowTo: []
+  allowExternalPorts: []

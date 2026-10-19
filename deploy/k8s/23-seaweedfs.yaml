@@ -1,0 +1,131 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: seaweedfs
+  namespace: civic-data
+  labels:
+    app.kubernetes.io/name: seaweedfs
+    app.kubernetes.io/part-of: civic-issue-tracker
+spec:
+  type: ClusterIP
+  ports:
+    - name: s3
+      port: 8333
+      targetPort: 8333
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: seaweedfs
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: seaweedfs
+  namespace: civic-data
+  labels:
+    app.kubernetes.io/name: seaweedfs
+    app.kubernetes.io/part-of: civic-issue-tracker
+spec:
+  serviceName: seaweedfs
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: seaweedfs
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: seaweedfs
+        app.kubernetes.io/part-of: civic-issue-tracker
+    spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: seaweedfs
+          image: chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882
+          imagePullPolicy: IfNotPresent
+          command:
+            - server
+            - -s3
+            - -dir=/data
+          ports:
+            - name: s3
+              containerPort: 8333
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 384Mi
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: seaweedfs-credentials
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: seaweedfs-credentials
+                  key: AWS_SECRET_ACCESS_KEY
+          startupProbe:
+            httpGet:
+              path: /
+              port: 8333
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8333
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8333
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: seaweedfs-data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: seaweedfs-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 5Gi
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: seaweedfs-netpol
+  namespace: civic-data
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: seaweedfs
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: civic-app
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: image
+      ports:
+        - protocol: TCP
+          port: 8333

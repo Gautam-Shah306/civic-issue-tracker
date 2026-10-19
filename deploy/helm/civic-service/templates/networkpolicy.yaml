@@ -1,0 +1,95 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "civic-service.fullname" . }}
+  labels:
+    {{- include "civic-service.labels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "civic-service.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  {{- if .Values.networkPolicy.allowFrom }}
+  ingress:
+    {{- range $peerName := .Values.networkPolicy.allowFrom }}
+    {{- $peer := index $.Values.peers $peerName }}
+    - from:
+        {{- if $peer.namespace }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $peer.namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml $peer.matchLabels | nindent 14 }}
+        {{- else }}
+        - podSelector:
+            matchLabels:
+              {{- toYaml $peer.matchLabels | nindent 14 }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ $.Values.service.port }}
+    {{- end }}
+  {{- end }}
+  {{- if or .Values.networkPolicy.allowTo .Values.networkPolicy.allowExternalPorts }}
+  egress:
+    {{- range $peerName := .Values.networkPolicy.allowTo }}
+    {{- $peer := index $.Values.peers $peerName }}
+    - to:
+        {{- if $peer.namespace }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $peer.namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml $peer.matchLabels | nindent 14 }}
+        {{- else }}
+        - podSelector:
+            matchLabels:
+              {{- toYaml $peer.matchLabels | nindent 14 }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ $peer.port }}
+    {{- end }}
+    {{- range $port := .Values.networkPolicy.allowExternalPorts }}
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: {{ $port }}
+    {{- end }}
+  {{- end }}
+{{- if .Values.migrate.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "civic-service.fullname" . }}-migrate
+  labels:
+    {{- include "civic-service.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "civic-service.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: migrate
+  policyTypes:
+    - Egress
+  egress:
+    {{- $pgPeer := index .Values.peers "postgres" }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $pgPeer.namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml $pgPeer.matchLabels | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ $pgPeer.port }}
+{{- end }}

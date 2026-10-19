@@ -48,6 +48,8 @@ v2 = duplicate detection, comments, upvotes, moderation and flagging, password r
 | **5. Go-live** | Create the GCP account, run Terraform (manual apply), bootstrap the cluster, DNS and TLS, deploy through the pipeline, smoke tests, demo rehearsal, README and architecture diagram | Public HTTPS link works, then stays live for about a month before `terraform destroy` |
 
 Phases 3 and 4 can overlap, but Phase 3 comes first because it secures most of the marks.
+
+> Update (D-039, D-051, D-053): work is delivered in the ten v1 cycles listed in `PROGRESS.md`; there is no local Kubernetes rehearsal, and the chart is checked by render checks and a kind install in CI.
 **Do not start phase N+1 until the exit criteria of phase N are verified.**
 
 ## 3. Marks coverage by phase
