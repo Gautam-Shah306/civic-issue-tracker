@@ -586,6 +586,9 @@ export const authRoutes: FastifyPluginAsync<AuthRouteOptions> = async (
   app.post(
     '/users',
     {
+      preValidation: async (request) => {
+        await requireAdmin(request);
+      },
       schema: {
         body: adminCreateUserBodySchema,
         response: {
@@ -700,6 +703,9 @@ export const authRoutes: FastifyPluginAsync<AuthRouteOptions> = async (
   app.get(
     '/users',
     {
+      preValidation: async (request) => {
+        await requireAdmin(request);
+      },
       schema: {
         querystring: listUsersQuerySchema,
         response: {
@@ -795,6 +801,9 @@ export const authRoutes: FastifyPluginAsync<AuthRouteOptions> = async (
   app.patch(
     '/users/:id',
     {
+      preValidation: async (request) => {
+        await requireAdmin(request);
+      },
       schema: {
         params: updateUserParamsSchema,
         body: updateUserBodySchema,
