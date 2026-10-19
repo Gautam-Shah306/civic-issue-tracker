@@ -398,3 +398,110 @@ async def test_assignments_endpoints_and_role_checks(
         headers=citizen_headers,
     )
     assert citizen_get.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_departments_crud_duplicate_and_validation(
+    async_client: AsyncClient,
+) -> None:
+    admin_token = generate_token(str(uuid.uuid4()), role="admin")
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    # 1. Validation failure: invalid code (uppercase/symbols) -> 400
+    val_res = await async_client.post(
+        "/api/v1/routing/departments",
+        json={"code": "INVALID CODE!", "name": "Bad", "email": "bad@civic.test"},
+        headers=admin_headers,
+    )
+    assert val_res.status_code == 400
+
+    # Validation failure: bad email -> 400
+    val_res2 = await async_client.post(
+        "/api/v1/routing/departments",
+        json={"code": "valid-code", "name": "Bad", "email": "not-an-email"},
+        headers=admin_headers,
+    )
+    assert val_res2.status_code == 400
+
+    # 2. Create valid department -> 201
+    code = f"dept-{uuid.uuid4().hex[:6]}"
+    create_res = await async_client.post(
+        "/api/v1/routing/departments",
+        json={"code": code, "name": "Parks & Gardens", "email": "parks@civic.test", "active": True},
+        headers=admin_headers,
+    )
+    assert create_res.status_code == 201
+    assert create_res.json()["code"] == code
+
+    # 3. Duplicate code -> 409
+    dup_res = await async_client.post(
+        "/api/v1/routing/departments",
+        json={"code": code, "name": "Parks Duplicate", "email": "parks2@civic.test", "active": True},
+        headers=admin_headers,
+    )
+    assert dup_res.status_code == 409
+    assert dup_res.json()["code"] == "conflict"
+
+
+@pytest.mark.asyncio
+async def test_departments_and_categories_all_parameter(
+    async_client: AsyncClient,
+) -> None:
+    admin_token = generate_token(str(uuid.uuid4()), role="admin")
+    citizen_token = generate_token(str(uuid.uuid4()), role="citizen")
+    officer_token = generate_token(str(uuid.uuid4()), role="officer")
+
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    citizen_headers = {"Authorization": f"Bearer {citizen_token}"}
+    officer_headers = {"Authorization": f"Bearer {officer_token}"}
+
+    # Setup: create inactive department and inactive category
+    inact_dept = f"inact-{uuid.uuid4().hex[:6]}"
+    await async_client.post(
+        "/api/v1/routing/departments",
+        json={"code": inact_dept, "name": "Inactive Dept", "email": "inact@civic.test", "active": False},
+        headers=admin_headers,
+    )
+
+    inact_cat = f"inact-{uuid.uuid4().hex[:6]}"
+    await async_client.post(
+        "/api/v1/routing/categories",
+        json={"slug": inact_cat, "name": "Inactive Cat", "departmentCode": "roads", "active": False},
+        headers=admin_headers,
+    )
+
+    # 1. Public GET without all=true returns only active items
+    pub_depts = await async_client.get("/api/v1/routing/departments")
+    assert pub_depts.status_code == 200
+    assert not any(d["code"] == inact_dept for d in pub_depts.json())
+
+    pub_cats = await async_client.get("/api/v1/routing/categories")
+    assert pub_cats.status_code == 200
+    assert not any(c["slug"] == inact_cat for c in pub_cats.json())
+
+    # 2. GET with all=true as admin -> 200 and includes inactive items
+    admin_depts = await async_client.get("/api/v1/routing/departments?all=true", headers=admin_headers)
+    assert admin_depts.status_code == 200
+    assert any(d["code"] == inact_dept for d in admin_depts.json())
+
+    admin_cats = await async_client.get("/api/v1/routing/categories?all=true", headers=admin_headers)
+    assert admin_cats.status_code == 200
+    assert any(c["slug"] == inact_cat for c in admin_cats.json())
+
+    # 3. GET with all=true as citizen -> 403
+    cit_depts = await async_client.get("/api/v1/routing/departments?all=true", headers=citizen_headers)
+    assert cit_depts.status_code == 403
+    cit_cats = await async_client.get("/api/v1/routing/categories?all=true", headers=citizen_headers)
+    assert cit_cats.status_code == 403
+
+    # 4. GET with all=true as officer -> 403
+    off_depts = await async_client.get("/api/v1/routing/departments?all=true", headers=officer_headers)
+    assert off_depts.status_code == 403
+    off_cats = await async_client.get("/api/v1/routing/categories?all=true", headers=officer_headers)
+    assert off_cats.status_code == 403
+
+    # 5. GET with all=true as anonymous -> 403
+    anon_depts = await async_client.get("/api/v1/routing/departments?all=true")
+    assert anon_depts.status_code == 403
+    anon_cats = await async_client.get("/api/v1/routing/categories?all=true")
+    assert anon_cats.status_code == 403

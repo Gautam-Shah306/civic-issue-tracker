@@ -2,10 +2,10 @@
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Header, status
 from psycopg_pool import AsyncConnectionPool
 
-from app.auth import UserClaims, require_role
+from app.auth import JwtVerifier, UserClaims, get_jwt_verifier, require_role
 from app.db import get_global_pool
 from app.errors import AppError
 from app.models import DepartmentCreate, DepartmentPatch, DepartmentResponse
@@ -14,15 +14,39 @@ router = APIRouter(tags=["Departments"])
 
 
 @router.get("/departments", response_model=list[DepartmentResponse])
-async def list_departments() -> list[dict[str, Any]]:
+async def list_departments(
+    all: bool = False,
+    authorization: str | None = Header(None, alias="Authorization"),
+    verifier: JwtVerifier = Depends(get_jwt_verifier),
+) -> list[dict[str, Any]]:
     """List all municipal departments."""
+    if all:
+        try:
+            user = verifier.verify_token(authorization)
+            if user.role != "admin":
+                raise AppError(status_code=403, code="forbidden", message="Admin role required")
+        except AppError as e:
+            if e.status_code == 403:
+                raise
+            raise AppError(status_code=403, code="forbidden", message="Admin role required") from e
+        except Exception as e:
+            raise AppError(status_code=403, code="forbidden", message="Admin role required") from e
+
     pool: AsyncConnectionPool = get_global_pool()
     async with pool.connection() as conn, conn.cursor() as cur:
-        await cur.execute("""
-            SELECT code, name, email, active
-            FROM departments
-            ORDER BY code ASC;
-        """)
+        if all:
+            await cur.execute("""
+                SELECT code, name, email, active
+                FROM departments
+                ORDER BY code ASC;
+            """)
+        else:
+            await cur.execute("""
+                SELECT code, name, email, active
+                FROM departments
+                WHERE active = true
+                ORDER BY code ASC;
+            """)
         rows = await cur.fetchall()
 
     return [{"code": r[0], "name": r[1], "email": r[2], "active": r[3]} for r in rows]

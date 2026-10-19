@@ -8,7 +8,14 @@ import { RegisterPage } from '../features/auth/RegisterPage.js';
 import { SubmitReportPage } from '../features/citizen/SubmitReportPage.js';
 import { MyReportsPage } from '../features/citizen/MyReportsPage.js';
 import { MyReportDetailPage } from '../features/citizen/MyReportDetailPage.js';
+import { StaffQueuePage } from '../features/staff/StaffQueuePage.js';
+import { StaffReportDetailPage } from '../features/staff/StaffReportDetailPage.js';
+import { AdminDashboardPage } from '../features/admin/AdminDashboardPage.js';
+import { AdminUsersPage } from '../features/admin/AdminUsersPage.js';
+import { AdminMasterDataPage } from '../features/admin/AdminMasterDataPage.js';
+import { AdminAuditPage } from '../features/admin/AdminAuditPage.js';
 import { RequireAuth } from '../auth/RequireAuth.js';
+import { RequireRole } from '../auth/RequireRole.js';
 import { Card } from '../components/Card.js';
 import { Button } from '../components/Button.js';
 
@@ -71,6 +78,64 @@ export const router = createBrowserRouter([
           <RequireAuth>
             <MyReportDetailPage />
           </RequireAuth>
+        )
+      },
+      // Staff Views
+      {
+        path: 'staff',
+        element: (
+          <RequireRole roles={['officer', 'admin']}>
+            <StaffQueuePage />
+          </RequireRole>
+        )
+      },
+      {
+        path: 'staff/reports/:id',
+        element: (
+          <RequireRole roles={['officer', 'admin']}>
+            <StaffReportDetailPage />
+          </RequireRole>
+        )
+      },
+      // Admin Views
+      {
+        path: 'admin',
+        element: (
+          <RequireRole roles={['admin']}>
+            <AdminDashboardPage />
+          </RequireRole>
+        )
+      },
+      {
+        path: 'admin/reports',
+        element: (
+          <RequireRole roles={['admin']}>
+            <StaffQueuePage />
+          </RequireRole>
+        )
+      },
+      {
+        path: 'admin/users',
+        element: (
+          <RequireRole roles={['admin']}>
+            <AdminUsersPage />
+          </RequireRole>
+        )
+      },
+      {
+        path: 'admin/master-data',
+        element: (
+          <RequireRole roles={['admin']}>
+            <AdminMasterDataPage />
+          </RequireRole>
+        )
+      },
+      {
+        path: 'admin/audit',
+        element: (
+          <RequireRole roles={['admin']}>
+            <AdminAuditPage />
+          </RequireRole>
         )
       },
       {

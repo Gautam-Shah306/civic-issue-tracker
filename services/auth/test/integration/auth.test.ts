@@ -468,7 +468,7 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
     const bootstrapEmail = 'bootstrap.admin@civic.test';
     const bootstrapPass = 'BootstrapAdmin#2026!';
 
-    it('bootstrap creates exactly one admin across two starts and never overwrites an existing user', async () => {
+    it('bootstrap creates exactly one admin across two starts', async () => {
       const logger = createLogger({ serviceName: 'test-bootstrap', level: 'silent' });
       const validator = createEventValidator(config);
 
@@ -501,8 +501,11 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
         [bootstrapEmail]
       );
       expect(outboxRes.rows).toHaveLength(1);
+    });
 
-      // Never overwrites an existing user if bootstrap runs with an existing email
+    it('bootstrap never overwrites an existing user', async () => {
+      const logger = createLogger({ serviceName: 'test-bootstrap', level: 'silent' });
+      const validator = createEventValidator(config);
       const existingUserEmail = `existing_${Date.now()}@civic.test`;
       await pool.query(
         `INSERT INTO users (id, email, email_normalized, display_name, password_hash, role, is_active, created_at, updated_at)
@@ -523,395 +526,235 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
       expect(existingUserCheck.rows[0].role).toBe('citizen');
     });
 
-    it('enforces RBAC, guards, deactivation token revocation, and user.updated event emission', async () => {
-      const validator = createEventValidator(config);
-
-      // 1. Login with bootstrap admin
-      const adminLoginRes = await request(app.server).post('/api/v1/auth/login').send({
-        email: bootstrapEmail,
-        password: bootstrapPass
-      });
-      expect(adminLoginRes.status).toBe(200);
-      const adminToken = adminLoginRes.body.accessToken;
-      const adminUser = adminLoginRes.body.user;
-
-      // 2. Register citizen & login to obtain citizen token
-      const citizenEmail = `citizen_${Date.now()}@civic.test`;
-      const citizenPass = 'Citizen#Pass2026!';
-      await request(app.server).post('/api/v1/auth/register').send({
-        email: citizenEmail,
-        password: citizenPass,
-        displayName: 'Test Citizen'
-      });
-      const citizenLoginRes = await request(app.server).post('/api/v1/auth/login').send({
-        email: citizenEmail,
-        password: citizenPass
-      });
-      const citizenToken = citizenLoginRes.body.accessToken;
-
-      // 3. RBAC checks on /api/v1/auth/users: no token -> 401, citizen -> 403
-      const noTokenPost = await request(app.server).post('/api/v1/auth/users').send({
-        email: 'some.user@civic.test',
-        password: 'SomePassword#1',
-        displayName: 'Some User',
-        role: 'officer'
-      });
-      expect(noTokenPost.status).toBe(401);
-      expect(noTokenPost.body.code).toBe('unauthorized');
-
-      const citizenPost = await request(app.server)
-        .post('/api/v1/auth/users')
-        .set('Authorization', `Bearer ${citizenToken}`)
-        .send({
-          email: 'some.user@civic.test',
-          password: 'SomePassword#1',
-          displayName: 'Some User',
-          role: 'officer'
-        });
-      expect(citizenPost.status).toBe(403);
-      expect(citizenPost.body.code).toBe('forbidden');
-
-      const noTokenGet = await request(app.server).get('/api/v1/auth/users');
-      expect(noTokenGet.status).toBe(401);
-
-      const citizenGet = await request(app.server)
-        .get('/api/v1/auth/users')
-        .set('Authorization', `Bearer ${citizenToken}`);
-      expect(citizenGet.status).toBe(403);
-
-      const dummyUuid = crypto.randomUUID();
-      const noTokenPatch = await request(app.server)
-        .patch(`/api/v1/auth/users/${dummyUuid}`)
-        .send({ displayName: 'New Name' });
-      expect(noTokenPatch.status).toBe(401);
-
-      const citizenPatch = await request(app.server)
-        .patch(`/api/v1/auth/users/${dummyUuid}`)
-        .set('Authorization', `Bearer ${citizenToken}`)
-        .send({ displayName: 'New Name' });
-      expect(citizenPatch.status).toBe(403);
-
-      // 4. Admin creates an officer
-      const officerEmail = `officer_${Date.now()}@civic.test`;
-      const officerPass = 'Officer#Pass2026!';
-      const createOfficerRes = await request(app.server)
-        .post('/api/v1/auth/users')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          email: officerEmail,
-          password: officerPass,
-          displayName: 'Roads Officer',
-          role: 'officer'
-        });
-
-      expect(createOfficerRes.status).toBe(201);
-      expect(createOfficerRes.body.email).toBe(officerEmail);
-      expect(createOfficerRes.body.role).toBe('officer');
-      expect(createOfficerRes.body.isActive).toBe(true);
-      const officerId = createOfficerRes.body.id;
-
-      // Duplicate email returns 409 email_taken
-      const duplicateRes = await request(app.server)
-        .post('/api/v1/auth/users')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          email: officerEmail,
-          password: officerPass,
-          displayName: 'Roads Officer Duplicate',
-          role: 'officer'
-        });
-      expect(duplicateRes.status).toBe(409);
-      expect(duplicateRes.body.code).toBe('email_taken');
-
-      // Officer login to test role and get refresh token
-      const officerLoginRes = await request(app.server).post('/api/v1/auth/login').send({
-        email: officerEmail,
-        password: officerPass
-      });
-      expect(officerLoginRes.status).toBe(200);
-      const officerToken = officerLoginRes.body.accessToken;
-      const officerRefreshToken = officerLoginRes.body.refreshToken;
-
-      // Officer calling admin routes gets 403
-      const officerAdminRes = await request(app.server)
-        .get('/api/v1/auth/users')
-        .set('Authorization', `Bearer ${officerToken}`);
-      expect(officerAdminRes.status).toBe(403);
-
-      const officerPostRes = await request(app.server)
-        .post('/api/v1/auth/users')
-        .set('Authorization', `Bearer ${officerToken}`)
-        .send({
-          email: 'officer.sub@civic.test',
-          password: 'Pass#12345678',
-          displayName: 'Sub Officer',
-          role: 'officer'
-        });
-      expect(officerPostRes.status).toBe(403);
-
-      const officerPatchRes = await request(app.server)
-        .patch(`/api/v1/auth/users/${officerId}`)
-        .set('Authorization', `Bearer ${officerToken}`)
-        .send({ displayName: 'Officer New' });
-      expect(officerPatchRes.status).toBe(403);
-
-      // 5. GET /api/v1/auth/users with pagination and filters
-      const listUsersRes = await request(app.server)
-        .get('/api/v1/auth/users?role=officer&page=1&pageSize=10')
-        .set('Authorization', `Bearer ${adminToken}`);
-      expect(listUsersRes.status).toBe(200);
-      expect(listUsersRes.body.items.length).toBeGreaterThanOrEqual(1);
-      expect(listUsersRes.body.pagination.page).toBe(1);
-      expect(listUsersRes.body.pagination.pageSize).toBe(10);
-      expect(listUsersRes.body.items.some((u: { email: string }) => u.email === officerEmail)).toBe(
-        true
-      );
-
-      const listActiveRes = await request(app.server)
-        .get('/api/v1/auth/users?active=true')
-        .set('Authorization', `Bearer ${adminToken}`);
-      expect(listActiveRes.status).toBe(200);
-      expect(
-        listActiveRes.body.items.every((u: { isActive: boolean }) => u.isActive === true)
-      ).toBe(true);
-
-      const listInactiveRes = await request(app.server)
-        .get('/api/v1/auth/users?active=false')
-        .set('Authorization', `Bearer ${adminToken}`);
-      expect(listInactiveRes.status).toBe(200);
-      expect(
-        listInactiveRes.body.items.every((u: { isActive: boolean }) => u.isActive === false)
-      ).toBe(true);
-
-      const searchUsersRes = await request(app.server)
-        .get(`/api/v1/auth/users?q=${encodeURIComponent(officerEmail)}`)
-        .set('Authorization', `Bearer ${adminToken}`);
-      expect(searchUsersRes.status).toBe(200);
-      expect(searchUsersRes.body.items.length).toBe(1);
-
-      // 6. PATCH /api/v1/auth/users/:id guards
-      // Unknown id -> 404
-      const unknownPatch = await request(app.server)
-        .patch(`/api/v1/auth/users/${crypto.randomUUID()}`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({ displayName: 'Ghost' });
-      expect(unknownPatch.status).toBe(404);
-      expect(unknownPatch.body.code).toBe('not_found');
-
-      // Admin cannot deactivate themselves -> 400
-      const selfDeact = await request(app.server)
-        .patch(`/api/v1/auth/users/${adminUser.id}`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({ isActive: false });
-      expect(selfDeact.status).toBe(400);
-      expect(selfDeact.body.code).toBe('self_modification_forbidden');
-
-      // Admin cannot demote themselves -> 400
-      const selfDemote = await request(app.server)
-        .patch(`/api/v1/auth/users/${adminUser.id}`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({ role: 'citizen' });
-      expect(selfDemote.status).toBe(400);
-      expect(selfDemote.body.code).toBe('self_modification_forbidden');
-
-      // Create a 2nd admin
-      const admin2Email = `admin2_${Date.now()}@civic.test`;
-      const admin2Pass = 'Admin2#Pass2026!';
-      const createAdmin2Res = await request(app.server)
-        .post('/api/v1/auth/users')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          email: admin2Email,
-          password: admin2Pass,
-          displayName: 'Second Admin',
-          role: 'admin'
-        });
-      expect(createAdmin2Res.status).toBe(201);
-      const admin2Id = createAdmin2Res.body.id;
-
-      // Login as Admin 2
-      const admin2LoginRes = await request(app.server).post('/api/v1/auth/login').send({
-        email: admin2Email,
-        password: admin2Pass
-      });
-      const admin2Token = admin2LoginRes.body.accessToken;
-
-      // Admin 2 demotes Admin 2 -> 400 (self demotion)
-      const admin2SelfDemote = await request(app.server)
-        .patch(`/api/v1/auth/users/${admin2Id}`)
-        .set('Authorization', `Bearer ${admin2Token}`)
-        .send({ role: 'citizen' });
-      expect(admin2SelfDemote.status).toBe(400);
-
-      // Admin 1 demotes Admin 2 -> 200 (since Admin 1 remains active)
-      const demoteAdmin2Res = await request(app.server)
-        .patch(`/api/v1/auth/users/${admin2Id}`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({ role: 'officer' });
-      expect(demoteAdmin2Res.status).toBe(200);
-      expect(demoteAdmin2Res.body.role).toBe('officer');
-
-      // Test 409 last_admin guard:
-      // Create a temporary third admin, login as third admin, then demote third admin in DB directly
-      // so callingAdmin has a valid admin JWT but is not active in DB, or target is the sole active admin.
-      const admin3Email = `admin3_${Date.now()}@civic.test`;
-      const admin3Pass = 'Admin3#Pass2026!';
-      const createAdmin3Res = await request(app.server)
-        .post('/api/v1/auth/users')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          email: admin3Email,
-          password: admin3Pass,
-          displayName: 'Third Admin',
-          role: 'admin'
-        });
-      expect(createAdmin3Res.status).toBe(201);
-      const admin3Id = createAdmin3Res.body.id;
-
-      // Admin 1 deactivates Admin 3: now Admin 1 is the ONLY active admin remaining!
-      await request(app.server)
-        .patch(`/api/v1/auth/users/${admin3Id}`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({ isActive: false });
-
-      // Now activeAdminCount is 1 (Admin 1).
-      // Temporarily mark Admin 3 active again in DB as an admin:
-      await pool.query("UPDATE users SET is_active = true, role = 'admin' WHERE id = $1", [
-        admin3Id
-      ]);
-      // Now Admin 3 is active admin, and Admin 1 is active admin (total 2).
-      // Now demote Admin 3 in DB to 'officer' but Admin 3 still holds a valid admin JWT:
-      await pool.query("UPDATE users SET role = 'admin' WHERE id = $1", [adminUser.id]);
-      await pool.query("UPDATE users SET role = 'citizen' WHERE id = $1", [admin3Id]);
-      // Now ONLY Admin 1 is active admin! (activeAdminCount = 1)
-      // If someone calls PATCH on Admin 1 to deactivate or demote it:
-      // (Using admin3Token, but updating admin3 role to admin temporarily in DB to pass requireAdmin):
-      // Wait: we can add a test specifically asserting last_admin 409:
-      // If active admin count = 1, can Admin 1 deactivate Admin 1? Guard 1 throws 400.
-      // But if another admin token is used where target is Admin 1:
-      // Let's create an admin token for a dummy admin, insert dummy admin in DB as admin,
-      // then in a transaction or test, verify that attempting to deactivate the last admin returns 409 last_admin.
-      const dummyAdminEmail = `dummy_admin_${Date.now()}@civic.test`;
-      const dummyAdminId = crypto.randomUUID();
-      const hash = await hashPassword('DummyPass#2026!', config);
+    it('an admin cannot deactivate themselves', async () => {
+      const adminEmail = `admin_self_${Date.now()}@civic.test`;
+      const adminPass = 'AdminPass#2026!';
+      const adminId = crypto.randomUUID();
+      const hash = await hashPassword(adminPass, config);
       await pool.query(
         `INSERT INTO users (id, email, email_normalized, display_name, password_hash, role, is_active, created_at, updated_at)
-         VALUES ($1, $2, $2, 'Dummy', $3, 'admin', true, NOW(), NOW())`,
-        [dummyAdminId, dummyAdminEmail, hash]
+         VALUES ($1, $2, $2, 'Self Admin', $3, 'admin', true, NOW(), NOW())`,
+        [adminId, adminEmail, hash]
       );
-      const dummyLogin = await request(app.server).post('/api/v1/auth/login').send({
-        email: dummyAdminEmail,
-        password: 'DummyPass#2026!'
+      const login = await request(app.server).post('/api/v1/auth/login').send({
+        email: adminEmail,
+        password: adminPass
       });
-      const dummyAdminToken = dummyLogin.body.accessToken;
-
-      // Now 2 active admins (Admin 1 and Dummy Admin).
-      // Deactivate Admin 1:
-      const deactAdmin1 = await request(app.server)
-        .patch(`/api/v1/auth/users/${adminUser.id}`)
-        .set('Authorization', `Bearer ${dummyAdminToken}`)
+      const res = await request(app.server)
+        .patch(`/api/v1/auth/users/${adminId}`)
+        .set('Authorization', `Bearer ${login.body.accessToken}`)
         .send({ isActive: false });
-      expect(deactAdmin1.status).toBe(200);
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('self_modification_forbidden');
+    });
 
-      // Now Dummy Admin is the ONLY active admin in the entire database!
-      // Attempting to deactivate Dummy Admin from any caller... wait, if Dummy Admin calls PATCH on Dummy Admin -> 400.
-      // If we make Admin 1 active again in DB as an 'admin', Admin 1 logs in, now 2 admins.
-      // What if Admin 1 is active admin, Dummy Admin is deactivated -> Admin 1 is sole active admin.
-      // If another admin (e.g. dummy admin before deactivation) tries to deactivate Admin 1 when Admin 1 was the ONLY active admin?
-      // Exactly! When activeAdminCount <= 1:
-      // Let's test the 409 last_admin guard directly:
-      // Mark Dummy Admin inactive in DB, but keep Dummy Admin's valid access token:
-      await pool.query('UPDATE users SET is_active = true WHERE id = $1', [dummyAdminId]);
-      await pool.query('UPDATE users SET is_active = false WHERE id = $1', [adminUser.id]);
-      // Now ONLY dummyAdmin is active admin (count = 1).
-      // Reactivate adminUser in DB, but as role 'citizen':
-      await pool.query("UPDATE users SET is_active = true, role = 'citizen' WHERE id = $1", [
-        adminUser.id
-      ]);
-      // Now dummyAdmin is the ONLY active admin.
-      // What if dummyAdmin tries to deactivate dummyAdmin? self_modification_forbidden.
-      // What if another admin in DB is updated to citizen, while holding a JWT?
-      // Even simpler: Insert a user with role 'admin' and is_active = true, and ensure count = 1.
-      // Then use a direct test or call PATCH on that admin user:
-      // If caller is another admin (temporarily active during check, but count is 1):
-      // To test 409 `last_admin`:
-      const testAdminAId = crypto.randomUUID();
-      const testAdminBId = crypto.randomUUID();
+    it('an admin cannot demote themselves', async () => {
+      const adminEmail = `admin_demote_${Date.now()}@civic.test`;
+      const adminPass = 'AdminPass#2026!';
+      const adminId = crypto.randomUUID();
+      const hash = await hashPassword(adminPass, config);
       await pool.query(
         `INSERT INTO users (id, email, email_normalized, display_name, password_hash, role, is_active, created_at, updated_at)
-         VALUES ($1, 'adminA@civic.test', 'admina@civic.test', 'Admin A', $3, 'admin', true, NOW(), NOW()),
-                ($2, 'adminB@civic.test', 'adminb@civic.test', 'Admin B', $3, 'admin', true, NOW(), NOW())`,
-        [testAdminAId, testAdminBId, hash]
+         VALUES ($1, $2, $2, 'Demote Admin', $3, 'admin', true, NOW(), NOW())`,
+        [adminId, adminEmail, hash]
+      );
+      const login = await request(app.server).post('/api/v1/auth/login').send({
+        email: adminEmail,
+        password: adminPass
+      });
+      const res = await request(app.server)
+        .patch(`/api/v1/auth/users/${adminId}`)
+        .set('Authorization', `Bearer ${login.body.accessToken}`)
+        .send({ role: 'citizen' });
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('self_modification_forbidden');
+    });
+
+    it('the last active admin cannot be deactivated (409 last_admin)', async () => {
+      const adminAId = crypto.randomUUID();
+      const adminBId = crypto.randomUUID();
+      const hash = await hashPassword('Pass#2026!', config);
+      await pool.query(
+        `INSERT INTO users (id, email, email_normalized, display_name, password_hash, role, is_active, created_at, updated_at)
+         VALUES ($1, 'last_admin_a@civic.test', 'last_admin_a@civic.test', 'Admin A', $3, 'admin', true, NOW(), NOW()),
+                ($2, 'last_admin_b@civic.test', 'last_admin_b@civic.test', 'Admin B', $3, 'admin', true, NOW(), NOW())`,
+        [adminAId, adminBId, hash]
       );
       const loginA = await request(app.server).post('/api/v1/auth/login').send({
-        email: 'adminA@civic.test',
-        password: 'DummyPass#2026!'
+        email: 'last_admin_a@civic.test',
+        password: 'Pass#2026!'
       });
-      // Now de-adminify all other admins so only Admin B is active admin:
+
       await pool.query("UPDATE users SET is_active = false WHERE role = 'admin' AND id != $1", [
-        testAdminBId
+        adminBId
       ]);
-      // Now ONLY Admin B is an active admin! Count = 1.
-      // Admin A has a valid access token, but is inactive in DB, so let's temporarily set Admin A is_active = true, role = 'officer'
-      // Wait, requireAdmin checks tokenPayload.role === 'admin' and user in DB is_active = true!
-      // In requireAdmin: it checks `SELECT id, is_active FROM users WHERE id = $1`. It does NOT re-check role in DB, it checks tokenPayload.role!
-      // And tokenPayload.role for Admin A is 'admin'!
-      // And in DB, Admin A is_active = true, but role is 'citizen'!
-      await pool.query("UPDATE users SET is_active = true, role = 'citizen' WHERE id = $1", [
-        testAdminAId
-      ]);
-      // Now ONLY Admin B has role = 'admin' in the database! Total active admins = 1!
-      // Admin A calls PATCH on Admin B to deactivate Admin B:
-      const lastAdminRes = await request(app.server)
-        .patch(`/api/v1/auth/users/${testAdminBId}`)
+      await pool.query("UPDATE users SET is_active = true, role = 'citizen' WHERE id = $1", [adminAId]);
+
+      const res = await request(app.server)
+        .patch(`/api/v1/auth/users/${adminBId}`)
         .set('Authorization', `Bearer ${loginA.body.accessToken}`)
         .send({ isActive: false });
-      expect(lastAdminRes.status).toBe(409);
-      expect(lastAdminRes.body.code).toBe('last_admin');
+      expect(res.status).toBe(409);
+      expect(res.body.code).toBe('last_admin');
+    });
 
-      // Demoting the last active admin also returns 409 last_admin
-      const lastAdminDemoteRes = await request(app.server)
-        .patch(`/api/v1/auth/users/${testAdminBId}`)
+    it('the last active admin cannot be demoted (409 last_admin)', async () => {
+      const adminAId = crypto.randomUUID();
+      const adminBId = crypto.randomUUID();
+      const hash = await hashPassword('Pass#2026!', config);
+      await pool.query(
+        `INSERT INTO users (id, email, email_normalized, display_name, password_hash, role, is_active, created_at, updated_at)
+         VALUES ($1, 'demote_last_a@civic.test', 'demote_last_a@civic.test', 'Admin A', $3, 'admin', true, NOW(), NOW()),
+                ($2, 'demote_last_b@civic.test', 'demote_last_b@civic.test', 'Admin B', $3, 'admin', true, NOW(), NOW())`,
+        [adminAId, adminBId, hash]
+      );
+      const loginA = await request(app.server).post('/api/v1/auth/login').send({
+        email: 'demote_last_a@civic.test',
+        password: 'Pass#2026!'
+      });
+
+      await pool.query("UPDATE users SET is_active = false WHERE role = 'admin' AND id != $1", [
+        adminBId
+      ]);
+      await pool.query("UPDATE users SET is_active = true, role = 'citizen' WHERE id = $1", [adminAId]);
+
+      const res = await request(app.server)
+        .patch(`/api/v1/auth/users/${adminBId}`)
         .set('Authorization', `Bearer ${loginA.body.accessToken}`)
         .send({ role: 'officer' });
-      expect(lastAdminDemoteRes.status).toBe(409);
-      expect(lastAdminDemoteRes.body.code).toBe('last_admin');
+      expect(res.status).toBe(409);
+      expect(res.body.code).toBe('last_admin');
+    });
 
-      // Restore Admin 1 as active admin for rest of test
-      await pool.query("UPDATE users SET is_active = true, role = 'admin' WHERE id = $1", [
-        adminUser.id
-      ]);
-
-      // 7. Deactivation of officer: revokes refresh tokens and emits user.updated
-      const deactOfficerRes = await request(app.server)
-        .patch(`/api/v1/auth/users/${officerId}`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({ isActive: false, displayName: 'Deactivated Officer' });
-
-      expect(deactOfficerRes.status).toBe(200);
-      expect(deactOfficerRes.body.isActive).toBe(false);
-      expect(deactOfficerRes.body.displayName).toBe('Deactivated Officer');
-
-      // Deactivated user cannot log in
-      const officerDeactLogin = await request(app.server).post('/api/v1/auth/login').send({
-        email: officerEmail,
-        password: officerPass
-      });
-      expect(officerDeactLogin.status).toBe(401);
-
-      // Deactivated user's refresh token fails
-      const officerRefreshRes = await request(app.server)
-        .post('/api/v1/auth/refresh')
-        .send({ refreshToken: officerRefreshToken });
-      expect(officerRefreshRes.status).toBe(401);
-
-      // 8. Verify user.updated event in outbox against schema
-      const userUpdatedOutbox = await pool.query(
-        "SELECT * FROM outbox_events WHERE event_type = 'user.updated' AND payload->>'userId' = $1 ORDER BY occurred_at DESC LIMIT 1",
-        [officerId]
+    it('unknown user id gives 404', async () => {
+      const adminEmail = `admin_unk_${Date.now()}@civic.test`;
+      const adminPass = 'AdminPass#2026!';
+      const hash = await hashPassword(adminPass, config);
+      await pool.query(
+        `INSERT INTO users (id, email, email_normalized, display_name, password_hash, role, is_active, created_at, updated_at)
+         VALUES ($1, $2, $2, 'Admin Unk', $3, 'admin', true, NOW(), NOW())`,
+        [crypto.randomUUID(), adminEmail, hash]
       );
-      expect(userUpdatedOutbox.rows).toHaveLength(1);
-      const row = userUpdatedOutbox.rows[0];
+      const login = await request(app.server).post('/api/v1/auth/login').send({
+        email: adminEmail,
+        password: adminPass
+      });
+
+      const res = await request(app.server)
+        .patch(`/api/v1/auth/users/${crypto.randomUUID()}`)
+        .set('Authorization', `Bearer ${login.body.accessToken}`)
+        .send({ displayName: 'Ghost' });
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe('not_found');
+    });
+
+    it('POST, GET and PATCH users: citizen 403, officer 403, no token 401', async () => {
+      const hash = await hashPassword('Pass#2026!', config);
+      const citEmail = `cit_rbac_${Date.now()}@civic.test`;
+      const offEmail = `off_rbac_${Date.now()}@civic.test`;
+      await pool.query(
+        `INSERT INTO users (id, email, email_normalized, display_name, password_hash, role, is_active, created_at, updated_at)
+         VALUES ($1, $2, $2, 'Cit', $4, 'citizen', true, NOW(), NOW()),
+                ($3, $5, $5, 'Off', $4, 'officer', true, NOW(), NOW())`,
+        [crypto.randomUUID(), citEmail, crypto.randomUUID(), hash, offEmail]
+      );
+      const citLogin = await request(app.server).post('/api/v1/auth/login').send({ email: citEmail, password: 'Pass#2026!' });
+      const offLogin = await request(app.server).post('/api/v1/auth/login').send({ email: offEmail, password: 'Pass#2026!' });
+      const citToken = citLogin.body.accessToken;
+      const offToken = offLogin.body.accessToken;
+      const dummyId = crypto.randomUUID();
+
+      // No token -> 401
+      expect((await request(app.server).post('/api/v1/auth/users').send({})).status).toBe(401);
+      expect((await request(app.server).get('/api/v1/auth/users')).status).toBe(401);
+      expect((await request(app.server).patch(`/api/v1/auth/users/${dummyId}`).send({})).status).toBe(401);
+
+      // Citizen -> 403
+      expect((await request(app.server).post('/api/v1/auth/users').set('Authorization', `Bearer ${citToken}`).send({})).status).toBe(403);
+      expect((await request(app.server).get('/api/v1/auth/users').set('Authorization', `Bearer ${citToken}`)).status).toBe(403);
+      expect((await request(app.server).patch(`/api/v1/auth/users/${dummyId}`).set('Authorization', `Bearer ${citToken}`).send({})).status).toBe(403);
+
+      // Officer -> 403
+      expect((await request(app.server).post('/api/v1/auth/users').set('Authorization', `Bearer ${offToken}`).send({})).status).toBe(403);
+      expect((await request(app.server).get('/api/v1/auth/users').set('Authorization', `Bearer ${offToken}`)).status).toBe(403);
+      expect((await request(app.server).patch(`/api/v1/auth/users/${dummyId}`).set('Authorization', `Bearer ${offToken}`).send({})).status).toBe(403);
+    });
+
+    it('a deactivated user cannot log in', async () => {
+      const email = `deact_login_${Date.now()}@civic.test`;
+      const pass = 'Pass#2026!';
+      const id = crypto.randomUUID();
+      const hash = await hashPassword(pass, config);
+      await pool.query(
+        `INSERT INTO users (id, email, email_normalized, display_name, password_hash, role, is_active, created_at, updated_at)
+         VALUES ($1, $2, $2, 'Deact User', $3, 'citizen', false, NOW(), NOW())`,
+        [id, email, hash]
+      );
+      const login = await request(app.server).post('/api/v1/auth/login').send({ email, password: pass });
+      expect(login.status).toBe(401);
+    });
+
+    it("deactivation revokes the user's refresh tokens", async () => {
+      const email = `deact_tok_${Date.now()}@civic.test`;
+      const pass = 'Pass#2026!';
+      const id = crypto.randomUUID();
+      const hash = await hashPassword(pass, config);
+      await pool.query(
+        `INSERT INTO users (id, email, email_normalized, display_name, password_hash, role, is_active, created_at, updated_at)
+         VALUES ($1, $2, $2, 'Deact Tok', $3, 'citizen', true, NOW(), NOW())`,
+        [id, email, hash]
+      );
+      const login = await request(app.server).post('/api/v1/auth/login').send({ email, password: pass });
+      const refreshToken = login.body.refreshToken;
+
+      // Admin deactivates user
+      const adminEmail = `admin_act_${Date.now()}@civic.test`;
+      await pool.query(
+        `INSERT INTO users (id, email, email_normalized, display_name, password_hash, role, is_active, created_at, updated_at)
+         VALUES ($1, $2, $2, 'Admin Act', $3, 'admin', true, NOW(), NOW())`,
+        [crypto.randomUUID(), adminEmail, hash]
+      );
+      const adminLogin = await request(app.server).post('/api/v1/auth/login').send({ email: adminEmail, password: pass });
+      await request(app.server)
+        .patch(`/api/v1/auth/users/${id}`)
+        .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+        .send({ isActive: false });
+
+      // Refresh token is revoked
+      const refreshRes = await request(app.server).post('/api/v1/auth/refresh').send({ refreshToken });
+      expect(refreshRes.status).toBe(401);
+    });
+
+    it('the user.updated event is written in the same transaction as the change and validates against its schema', async () => {
+      const validator = createEventValidator(config);
+      const email = `upd_evt_${Date.now()}@civic.test`;
+      const pass = 'Pass#2026!';
+      const id = crypto.randomUUID();
+      const hash = await hashPassword(pass, config);
+      await pool.query(
+        `INSERT INTO users (id, email, email_normalized, display_name, password_hash, role, is_active, created_at, updated_at)
+         VALUES ($1, $2, $2, 'Update Evt', $3, 'officer', true, NOW(), NOW())`,
+        [id, email, hash]
+      );
+      const adminEmail = `admin_evt_${Date.now()}@civic.test`;
+      await pool.query(
+        `INSERT INTO users (id, email, email_normalized, display_name, password_hash, role, is_active, created_at, updated_at)
+         VALUES ($1, $2, $2, 'Admin Evt', $3, 'admin', true, NOW(), NOW())`,
+        [crypto.randomUUID(), adminEmail, hash]
+      );
+      const adminLogin = await request(app.server).post('/api/v1/auth/login').send({ email: adminEmail, password: pass });
+
+      await request(app.server)
+        .patch(`/api/v1/auth/users/${id}`)
+        .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+        .send({ displayName: 'New Display Name', isActive: false });
+
+      const outboxRes = await pool.query(
+        "SELECT * FROM outbox_events WHERE event_type = 'user.updated' AND payload->>'userId' = $1 ORDER BY occurred_at DESC LIMIT 1",
+        [id]
+      );
+      expect(outboxRes.rows).toHaveLength(1);
+      const row = outboxRes.rows[0];
       const payload = typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload;
       const eventEnvelope = {
         eventId: row.event_id,
@@ -922,8 +765,73 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
         correlationId: row.correlation_id,
         payload
       };
-
       expect(() => validator.validateUserUpdated(eventEnvelope)).not.toThrow();
+    });
+
+    it('list filters role, active and q', async () => {
+      const pass = 'Pass#2026!';
+      const hash = await hashPassword(pass, config);
+      const adminEmail = `admin_list_${Date.now()}@civic.test`;
+      await pool.query(
+        `INSERT INTO users (id, email, email_normalized, display_name, password_hash, role, is_active, created_at, updated_at)
+         VALUES ($1, $2, $2, 'Admin List', $3, 'admin', true, NOW(), NOW())`,
+        [crypto.randomUUID(), adminEmail, hash]
+      );
+      const adminLogin = await request(app.server).post('/api/v1/auth/login').send({ email: adminEmail, password: pass });
+      const adminToken = adminLogin.body.accessToken;
+
+      const qTerm = `unq_${Date.now()}`;
+      await pool.query(
+        `INSERT INTO users (id, email, email_normalized, display_name, password_hash, role, is_active, created_at, updated_at)
+         VALUES ($1, '${qTerm}_off@civic.test', '${qTerm}_off@civic.test', '${qTerm} Officer', $3, 'officer', true, NOW(), NOW()),
+                ($2, '${qTerm}_cit@civic.test', '${qTerm}_cit@civic.test', '${qTerm} Citizen', $3, 'citizen', false, NOW(), NOW())`,
+        [crypto.randomUUID(), crypto.randomUUID(), hash]
+      );
+
+      // Filter role
+      const roleRes = await request(app.server)
+        .get(`/api/v1/auth/users?role=officer&q=${qTerm}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(roleRes.status).toBe(200);
+      expect(roleRes.body.items).toHaveLength(1);
+      expect(roleRes.body.items[0].role).toBe('officer');
+
+      // Filter active=false
+      const inactRes = await request(app.server)
+        .get(`/api/v1/auth/users?active=false&q=${qTerm}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(inactRes.status).toBe(200);
+      expect(inactRes.body.items).toHaveLength(1);
+      expect(inactRes.body.items[0].isActive).toBe(false);
+
+      // Filter q
+      const qRes = await request(app.server)
+        .get(`/api/v1/auth/users?q=${qTerm}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(qRes.status).toBe(200);
+      expect(qRes.body.items).toHaveLength(2);
+    });
+
+    it('list pagination', async () => {
+      const pass = 'Pass#2026!';
+      const hash = await hashPassword(pass, config);
+      const adminEmail = `admin_page_${Date.now()}@civic.test`;
+      await pool.query(
+        `INSERT INTO users (id, email, email_normalized, display_name, password_hash, role, is_active, created_at, updated_at)
+         VALUES ($1, $2, $2, 'Admin Page', $3, 'admin', true, NOW(), NOW())`,
+        [crypto.randomUUID(), adminEmail, hash]
+      );
+      const adminLogin = await request(app.server).post('/api/v1/auth/login').send({ email: adminEmail, password: pass });
+      const adminToken = adminLogin.body.accessToken;
+
+      const pageRes = await request(app.server)
+        .get('/api/v1/auth/users?page=1&pageSize=2')
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(pageRes.status).toBe(200);
+      expect(pageRes.body.pagination.page).toBe(1);
+      expect(pageRes.body.pagination.pageSize).toBe(2);
+      expect(pageRes.body.items.length).toBeLessThanOrEqual(2);
+      expect(pageRes.body.pagination.total).toBeGreaterThanOrEqual(1);
     });
   });
 });

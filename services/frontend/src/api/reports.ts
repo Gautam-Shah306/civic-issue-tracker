@@ -79,3 +79,40 @@ export async function updateReportStatusApi(
     requiresAuth: true
   });
 }
+
+export interface ListStaffReportsParams {
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+  status?: ReportStatus;
+  category?: string;
+  department?: string;
+  ward?: string;
+  q?: string;
+  from?: string;
+  to?: string;
+}
+
+export async function listStaffReportsApi(
+  params: ListStaffReportsParams = {}
+): Promise<PaginatedResponse<Report>> {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.set('page', String(params.page));
+  if (params.pageSize) searchParams.set('pageSize', String(params.pageSize));
+  if (params.sort) searchParams.set('sort', params.sort);
+  if (params.status) searchParams.set('status', params.status);
+  if (params.category) searchParams.set('category', params.category);
+  if (params.department) searchParams.set('department', params.department);
+  if (params.ward) searchParams.set('ward', params.ward);
+  if (params.q) searchParams.set('q', params.q);
+  if (params.from) searchParams.set('from', params.from);
+  if (params.to) searchParams.set('to', params.to);
+
+  const qs = searchParams.toString();
+  const endpoint = qs ? `/reports?${qs}` : '/reports';
+
+  return apiClient<PaginatedResponse<Report>>(endpoint, {
+    method: 'GET',
+    requiresAuth: true
+  });
+}

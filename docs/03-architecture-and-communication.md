@@ -1,6 +1,6 @@
 # 03: Architecture and Communication
 
-> **Status:** Approved · **Last updated:** 2026-10-16
+> **Status:** Approved · **Last updated:** 2026-10-18
 > **Principle:** split by business capability; each service owns its data; keep the service count small enough to run on free-tier resources.
 
 ---
@@ -42,6 +42,7 @@
 | `sla.breached` | Routing | Report, Notification, Analytics & Audit | — |
 | `report.reopened` / `report.rejected` | Report | Routing, Notification, Analytics & Audit | — |
 | `user.created` | Auth | Notification, Analytics & Audit | `notification.user-created`, `analytics.stats` |
+| `user.updated` | Auth | Analytics & Audit | `analytics.audit` |
 
 **Event envelope (on every message):** event ID, event type, version, timestamp (UTC), correlation ID, payload.
 

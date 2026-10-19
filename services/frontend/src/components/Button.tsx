@@ -1,8 +1,9 @@
 import React from 'react';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger';
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
+  loading?: boolean;
   children: React.ReactNode;
 }
 
@@ -11,6 +12,7 @@ export const Button: React.FC<ButtonProps> = ({
   size = 'md',
   className = '',
   disabled,
+  loading = false,
   children,
   ...props
 }) => {
@@ -21,8 +23,10 @@ export const Button: React.FC<ButtonProps> = ({
         ? 'h-control-lg text-lg px-6'
         : 'h-control text-sm px-4';
 
+  const isDisabled = Boolean(disabled || loading);
+
   let variantClass = '';
-  if (disabled) {
+  if (isDisabled) {
     variantClass = 'bg-disabled-bg text-disabled-text border border-border cursor-not-allowed';
   } else if (variant === 'primary') {
     variantClass = 'bg-primary text-primary-text hover:bg-primary-hover border border-primary';
@@ -30,6 +34,8 @@ export const Button: React.FC<ButtonProps> = ({
     variantClass = 'bg-transparent text-text border border-primary hover:bg-surface';
   } else if (variant === 'danger') {
     variantClass = 'bg-danger-bg text-danger-text border border-danger-text hover:opacity-90';
+  } else if (variant === 'ghost') {
+    variantClass = 'bg-transparent text-text border border-transparent hover:bg-surface';
   }
 
   return (

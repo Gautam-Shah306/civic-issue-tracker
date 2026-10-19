@@ -155,3 +155,92 @@ export interface GeoJSONFeatureCollection {
   type: 'FeatureCollection';
   features: GeoJSONFeature[];
 }
+
+export interface Department {
+  code: string;
+  name: string;
+  email: string;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RoutingCategory {
+  code: string;
+  name: string;
+  departmentCode: string;
+  slaHours: number;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Ward {
+  code: string;
+  name: string;
+  active: boolean;
+  geometry?: GeoJSONGeometry;
+}
+
+export interface StaffReportsParams {
+  status?: string[];
+  category?: string;
+  department?: string;
+  ward?: string;
+  q?: string;
+  createdAfter?: string;
+  createdBefore?: string;
+  page?: number;
+  limit?: number;
+  sort?: string;
+  order?: 'asc' | 'desc';
+}
+
+export interface AnalyticsSummary {
+  totalReports: number;
+  openReports: number;
+  resolvedReports?: number;
+  averageResolutionHours?: number;
+  avgResolutionHours?: number;
+  byStatus: Record<string, number>;
+  byCategory: Record<string, number>;
+  byWard: Record<string, number>;
+  byDepartment: Record<string, number>;
+}
+
+export interface AuditLogItem {
+  id: string;
+  eventId: string;
+  eventType: string;
+  eventVersion: number;
+  subjectId: string;
+  correlationId: string;
+  actorId?: string | null;
+  occurredAt: string;
+  recordedAt: string;
+  payload: Record<string, unknown>;
+}
+
+export interface AuditLogResponse {
+  items: AuditLogItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface UserListParams {
+  role?: string;
+  active?: boolean;
+  q?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface UserListResponse {
+  items: User[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}

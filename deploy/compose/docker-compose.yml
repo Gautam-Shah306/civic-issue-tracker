@@ -85,7 +85,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s # values to be tuned from measurements in Phase 3
+      start_period: 120s # values to be tuned from measurements in Phase 3
     networks:
       - civic
     security_opt:

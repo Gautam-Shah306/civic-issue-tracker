@@ -7,10 +7,10 @@
 ## Status
 
 - **Current phase:** Phase 1, Walking skeleton (in progress)
-- **Last verified step:** Prompt 1: backend completion, admin bootstrap, seed & e2e (D-048)
+- **Last verified step:** Prompt 2: frontend A (foundation, design system, public views, auth, citizen journey) (D-049)
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
 - **Cloud account:** not created (by design; created in Phase 5)
-- **Next action:** Prompt 3: frontend B (staff and admin views)
+- **Next action:** Prompt 4: Helm chart and Kubernetes manifests
 
 ## v1 plan (D-039)
 
@@ -20,7 +20,7 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 - [x] Cycle 2: Gateway + Report (D-040)
 - [x] Cycle 3: Notification + Analytics & Audit (Phase 1 exit test verified (local), D-041, D-042)
 - [x] Cycle 4: Python base + Image + Routing (D-044, D-045, D-046, D-047)
-- [ ] Cycle 5: Web Frontend + backend gaps
+- [x] Cycle 5: Web Frontend + backend gaps
 - [ ] Cycle 6: Local Kubernetes
 - [ ] Cycle 7: Pipeline and DevSecOps
 - [ ] Cycle 8: Terraform and GCP
@@ -50,7 +50,7 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 - [x] Slice 3: Gateway (JWT verification, routing, correlation ID, rate limit)
 - [x] Slice 4: Report service (submit, my reports, outbox, `ReportSubmitted`, status transitions table)
 - [x] Slice 5: Notification service (idempotent consumer, email to Mailpit)
-- [ ] Slice 6: minimal frontend (register, login, submit, list)
+- [x] Slice 6: minimal frontend (register, login, submit, list)
 - [ ] Dependabot entries added with each first manifest (`npm` and `pip` per service)
 - [x] Citizen registers, submits a report, email appears in Mailpit via a real event
 
@@ -109,3 +109,4 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 | 2026-10-16 | v1 cycle 4b: Image service + photo pipeline (D-047) | Verified |
 | 2026-10-18 | Prompt 1: backend completion, admin bootstrap, seed & e2e (D-048) | Verified |
 | 2026-10-18 | Prompt 2: frontend A (foundation, design system, public views, auth, citizen journey) (D-049) | Verified |
+| 2026-10-18 | Prompt 3: frontend B (staff and admin views, frontend CI fix, backend test & routing gaps) (D-050) | In progress |
