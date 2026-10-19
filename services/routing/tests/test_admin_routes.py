@@ -436,7 +436,12 @@ async def test_departments_crud_duplicate_and_validation(
     # 3. Duplicate code -> 409
     dup_res = await async_client.post(
         "/api/v1/routing/departments",
-        json={"code": code, "name": "Parks Duplicate", "email": "parks2@civic.test", "active": True},
+        json={
+            "code": code,
+            "name": "Parks Duplicate",
+            "email": "parks2@civic.test",
+            "active": True,
+        },
         headers=admin_headers,
     )
     assert dup_res.status_code == 409
@@ -459,14 +464,24 @@ async def test_departments_and_categories_all_parameter(
     inact_dept = f"inact-{uuid.uuid4().hex[:6]}"
     await async_client.post(
         "/api/v1/routing/departments",
-        json={"code": inact_dept, "name": "Inactive Dept", "email": "inact@civic.test", "active": False},
+        json={
+            "code": inact_dept,
+            "name": "Inactive Dept",
+            "email": "inact@civic.test",
+            "active": False,
+        },
         headers=admin_headers,
     )
 
     inact_cat = f"inact-{uuid.uuid4().hex[:6]}"
     await async_client.post(
         "/api/v1/routing/categories",
-        json={"slug": inact_cat, "name": "Inactive Cat", "departmentCode": "roads", "active": False},
+        json={
+            "slug": inact_cat,
+            "name": "Inactive Cat",
+            "departmentCode": "roads",
+            "active": False,
+        },
         headers=admin_headers,
     )
 
@@ -480,24 +495,36 @@ async def test_departments_and_categories_all_parameter(
     assert not any(c["slug"] == inact_cat for c in pub_cats.json())
 
     # 2. GET with all=true as admin -> 200 and includes inactive items
-    admin_depts = await async_client.get("/api/v1/routing/departments?all=true", headers=admin_headers)
+    admin_depts = await async_client.get(
+        "/api/v1/routing/departments?all=true", headers=admin_headers
+    )
     assert admin_depts.status_code == 200
     assert any(d["code"] == inact_dept for d in admin_depts.json())
 
-    admin_cats = await async_client.get("/api/v1/routing/categories?all=true", headers=admin_headers)
+    admin_cats = await async_client.get(
+        "/api/v1/routing/categories?all=true", headers=admin_headers
+    )
     assert admin_cats.status_code == 200
     assert any(c["slug"] == inact_cat for c in admin_cats.json())
 
     # 3. GET with all=true as citizen -> 403
-    cit_depts = await async_client.get("/api/v1/routing/departments?all=true", headers=citizen_headers)
+    cit_depts = await async_client.get(
+        "/api/v1/routing/departments?all=true", headers=citizen_headers
+    )
     assert cit_depts.status_code == 403
-    cit_cats = await async_client.get("/api/v1/routing/categories?all=true", headers=citizen_headers)
+    cit_cats = await async_client.get(
+        "/api/v1/routing/categories?all=true", headers=citizen_headers
+    )
     assert cit_cats.status_code == 403
 
     # 4. GET with all=true as officer -> 403
-    off_depts = await async_client.get("/api/v1/routing/departments?all=true", headers=officer_headers)
+    off_depts = await async_client.get(
+        "/api/v1/routing/departments?all=true", headers=officer_headers
+    )
     assert off_depts.status_code == 403
-    off_cats = await async_client.get("/api/v1/routing/categories?all=true", headers=officer_headers)
+    off_cats = await async_client.get(
+        "/api/v1/routing/categories?all=true", headers=officer_headers
+    )
     assert off_cats.status_code == 403
 
     # 5. GET with all=true as anonymous -> 403

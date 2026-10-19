@@ -588,7 +588,9 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
       await pool.query("UPDATE users SET is_active = false WHERE role = 'admin' AND id != $1", [
         adminBId
       ]);
-      await pool.query("UPDATE users SET is_active = true, role = 'citizen' WHERE id = $1", [adminAId]);
+      await pool.query("UPDATE users SET is_active = true, role = 'citizen' WHERE id = $1", [
+        adminAId
+      ]);
 
       const res = await request(app.server)
         .patch(`/api/v1/auth/users/${adminBId}`)
@@ -616,7 +618,9 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
       await pool.query("UPDATE users SET is_active = false WHERE role = 'admin' AND id != $1", [
         adminBId
       ]);
-      await pool.query("UPDATE users SET is_active = true, role = 'citizen' WHERE id = $1", [adminAId]);
+      await pool.query("UPDATE users SET is_active = true, role = 'citizen' WHERE id = $1", [
+        adminAId
+      ]);
 
       const res = await request(app.server)
         .patch(`/api/v1/auth/users/${adminBId}`)
@@ -658,8 +662,12 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
                 ($3, $5, $5, 'Off', $4, 'officer', true, NOW(), NOW())`,
         [crypto.randomUUID(), citEmail, crypto.randomUUID(), hash, offEmail]
       );
-      const citLogin = await request(app.server).post('/api/v1/auth/login').send({ email: citEmail, password: 'Pass#2026!' });
-      const offLogin = await request(app.server).post('/api/v1/auth/login').send({ email: offEmail, password: 'Pass#2026!' });
+      const citLogin = await request(app.server)
+        .post('/api/v1/auth/login')
+        .send({ email: citEmail, password: 'Pass#2026!' });
+      const offLogin = await request(app.server)
+        .post('/api/v1/auth/login')
+        .send({ email: offEmail, password: 'Pass#2026!' });
       const citToken = citLogin.body.accessToken;
       const offToken = offLogin.body.accessToken;
       const dummyId = crypto.randomUUID();
@@ -667,17 +675,59 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
       // No token -> 401
       expect((await request(app.server).post('/api/v1/auth/users').send({})).status).toBe(401);
       expect((await request(app.server).get('/api/v1/auth/users')).status).toBe(401);
-      expect((await request(app.server).patch(`/api/v1/auth/users/${dummyId}`).send({})).status).toBe(401);
+      expect(
+        (await request(app.server).patch(`/api/v1/auth/users/${dummyId}`).send({})).status
+      ).toBe(401);
 
       // Citizen -> 403
-      expect((await request(app.server).post('/api/v1/auth/users').set('Authorization', `Bearer ${citToken}`).send({})).status).toBe(403);
-      expect((await request(app.server).get('/api/v1/auth/users').set('Authorization', `Bearer ${citToken}`)).status).toBe(403);
-      expect((await request(app.server).patch(`/api/v1/auth/users/${dummyId}`).set('Authorization', `Bearer ${citToken}`).send({})).status).toBe(403);
+      expect(
+        (
+          await request(app.server)
+            .post('/api/v1/auth/users')
+            .set('Authorization', `Bearer ${citToken}`)
+            .send({})
+        ).status
+      ).toBe(403);
+      expect(
+        (
+          await request(app.server)
+            .get('/api/v1/auth/users')
+            .set('Authorization', `Bearer ${citToken}`)
+        ).status
+      ).toBe(403);
+      expect(
+        (
+          await request(app.server)
+            .patch(`/api/v1/auth/users/${dummyId}`)
+            .set('Authorization', `Bearer ${citToken}`)
+            .send({})
+        ).status
+      ).toBe(403);
 
       // Officer -> 403
-      expect((await request(app.server).post('/api/v1/auth/users').set('Authorization', `Bearer ${offToken}`).send({})).status).toBe(403);
-      expect((await request(app.server).get('/api/v1/auth/users').set('Authorization', `Bearer ${offToken}`)).status).toBe(403);
-      expect((await request(app.server).patch(`/api/v1/auth/users/${dummyId}`).set('Authorization', `Bearer ${offToken}`).send({})).status).toBe(403);
+      expect(
+        (
+          await request(app.server)
+            .post('/api/v1/auth/users')
+            .set('Authorization', `Bearer ${offToken}`)
+            .send({})
+        ).status
+      ).toBe(403);
+      expect(
+        (
+          await request(app.server)
+            .get('/api/v1/auth/users')
+            .set('Authorization', `Bearer ${offToken}`)
+        ).status
+      ).toBe(403);
+      expect(
+        (
+          await request(app.server)
+            .patch(`/api/v1/auth/users/${dummyId}`)
+            .set('Authorization', `Bearer ${offToken}`)
+            .send({})
+        ).status
+      ).toBe(403);
     });
 
     it('a deactivated user cannot log in', async () => {
@@ -690,7 +740,9 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
          VALUES ($1, $2, $2, 'Deact User', $3, 'citizen', false, NOW(), NOW())`,
         [id, email, hash]
       );
-      const login = await request(app.server).post('/api/v1/auth/login').send({ email, password: pass });
+      const login = await request(app.server)
+        .post('/api/v1/auth/login')
+        .send({ email, password: pass });
       expect(login.status).toBe(401);
     });
 
@@ -704,7 +756,9 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
          VALUES ($1, $2, $2, 'Deact Tok', $3, 'citizen', true, NOW(), NOW())`,
         [id, email, hash]
       );
-      const login = await request(app.server).post('/api/v1/auth/login').send({ email, password: pass });
+      const login = await request(app.server)
+        .post('/api/v1/auth/login')
+        .send({ email, password: pass });
       const refreshToken = login.body.refreshToken;
 
       // Admin deactivates user
@@ -714,14 +768,18 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
          VALUES ($1, $2, $2, 'Admin Act', $3, 'admin', true, NOW(), NOW())`,
         [crypto.randomUUID(), adminEmail, hash]
       );
-      const adminLogin = await request(app.server).post('/api/v1/auth/login').send({ email: adminEmail, password: pass });
+      const adminLogin = await request(app.server)
+        .post('/api/v1/auth/login')
+        .send({ email: adminEmail, password: pass });
       await request(app.server)
         .patch(`/api/v1/auth/users/${id}`)
         .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
         .send({ isActive: false });
 
       // Refresh token is revoked
-      const refreshRes = await request(app.server).post('/api/v1/auth/refresh').send({ refreshToken });
+      const refreshRes = await request(app.server)
+        .post('/api/v1/auth/refresh')
+        .send({ refreshToken });
       expect(refreshRes.status).toBe(401);
     });
 
@@ -742,7 +800,9 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
          VALUES ($1, $2, $2, 'Admin Evt', $3, 'admin', true, NOW(), NOW())`,
         [crypto.randomUUID(), adminEmail, hash]
       );
-      const adminLogin = await request(app.server).post('/api/v1/auth/login').send({ email: adminEmail, password: pass });
+      const adminLogin = await request(app.server)
+        .post('/api/v1/auth/login')
+        .send({ email: adminEmail, password: pass });
 
       await request(app.server)
         .patch(`/api/v1/auth/users/${id}`)
@@ -777,7 +837,9 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
          VALUES ($1, $2, $2, 'Admin List', $3, 'admin', true, NOW(), NOW())`,
         [crypto.randomUUID(), adminEmail, hash]
       );
-      const adminLogin = await request(app.server).post('/api/v1/auth/login').send({ email: adminEmail, password: pass });
+      const adminLogin = await request(app.server)
+        .post('/api/v1/auth/login')
+        .send({ email: adminEmail, password: pass });
       const adminToken = adminLogin.body.accessToken;
 
       const qTerm = `unq_${Date.now()}`;
@@ -821,7 +883,9 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
          VALUES ($1, $2, $2, 'Admin Page', $3, 'admin', true, NOW(), NOW())`,
         [crypto.randomUUID(), adminEmail, hash]
       );
-      const adminLogin = await request(app.server).post('/api/v1/auth/login').send({ email: adminEmail, password: pass });
+      const adminLogin = await request(app.server)
+        .post('/api/v1/auth/login')
+        .send({ email: adminEmail, password: pass });
       const adminToken = adminLogin.body.accessToken;
 
       const pageRes = await request(app.server)

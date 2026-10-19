@@ -845,14 +845,12 @@ describe('Gateway Service Integration Tests', () => {
     });
 
     it('rejects POST /api/v1/routing/departments without a token (401)', async () => {
-      const res = await request(gatewayApp.server)
-        .post('/api/v1/routing/departments')
-        .send({
-          code: 'parks',
-          name: 'Parks & Recreation',
-          email: 'parks@civic.test',
-          active: true
-        });
+      const res = await request(gatewayApp.server).post('/api/v1/routing/departments').send({
+        code: 'parks',
+        name: 'Parks & Recreation',
+        email: 'parks@civic.test',
+        active: true
+      });
       expect(res.status).toBe(401);
       expect(res.headers['content-type']).toContain('application/problem+json');
       expect(res.body.code).toBe('unauthorized');
