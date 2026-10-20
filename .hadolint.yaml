@@ -2,3 +2,5 @@
 ignored:
   # DL3059: Separate RUN instructions in the builder stage keep the npm build and npm prune layers apart
   - DL3059
+  # DL3066: Runtime images set the user by name (nonroot, nginx) as distroless and nginx-unprivileged do; Kubernetes pins the numeric runAsUser in the Helm chart
+  - DL3066
