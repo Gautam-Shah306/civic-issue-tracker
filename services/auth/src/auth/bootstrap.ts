@@ -50,11 +50,22 @@ export async function bootstrapAdmin(
     const role = 'admin';
     const displayName = 'Administrator';
 
-    await client.query(
+    const insertResult = await client.query(
       `INSERT INTO users (id, email, email_normalized, display_name, password_hash, role, is_active, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, true, $7, $7)`,
+       VALUES ($1, $2, $3, $4, $5, $6, true, $7, $7)
+       ON CONFLICT (email_normalized) DO NOTHING
+       RETURNING id`,
       [userId, email, emailNormalized, displayName, passwordHash, role, now]
     );
+
+    if (insertResult.rows.length === 0) {
+      await client.query('COMMIT');
+      logger.info(
+        { email: emailNormalized },
+        'Bootstrap administrator already exists or concurrent bootstrap won'
+      );
+      return;
+    }
 
     const eventId = randomUUID();
     const correlationId = randomUUID();
@@ -85,8 +96,15 @@ export async function bootstrapAdmin(
 
     await client.query('COMMIT');
     logger.info({ email: emailNormalized }, 'Bootstrap administrator created successfully');
-  } catch (err) {
+  } catch (err: unknown) {
     await client.query('ROLLBACK').catch(() => {});
+    if (err && typeof err === 'object' && 'code' in err && err.code === '23505') {
+      logger.info(
+        { email: emailNormalized },
+        'Bootstrap administrator creation skipped due to unique constraint'
+      );
+      return;
+    }
     logger.error({ err }, 'Failed to bootstrap administrator');
     throw err;
   } finally {

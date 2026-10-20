@@ -58,7 +58,6 @@ echo "Skipping CRD kinds: ClusterIssuer"
 mkdir -p /tmp/kubeconform-cache
 kubeconform -strict -summary -kubernetes-version 1.35.0 \
     -cache /tmp/kubeconform-cache \
-    -insecure-skip-tls-verify \
     -skip ClusterIssuer \
     "${RENDER_DIR}"/*.yaml \
     "${K8S_DIR}"/*.yaml \

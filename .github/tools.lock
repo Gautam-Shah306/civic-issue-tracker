@@ -1,0 +1,9 @@
+helm|v4.3.0|https://get.helm.sh/helm-v4.3.0-linux-amd64.tar.gz|86584a54def73570558f66f5111cc53dfed56689637ae32c1201205d494f54fb
+kubeconform|v0.8.0|https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz|9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883
+kubectl|v1.35.8|https://dl.k8s.io/release/v1.35.8/bin/linux/amd64/kubectl|874d5e72dbb819f43cff16bcd1e4f8bac5b7f2361fe1e55049b0a6c676fb0cbf
+kind|v0.33.0|https://github.com/kubernetes-sigs/kind/releases/download/v0.33.0/kind-linux-amd64|aee6151561422756b764a4ae28e7f44cda5af5a9eead3cc9985112b1de8d8e0d
+hadolint|v2.15.1|https://github.com/hadolint/hadolint/releases/download/v2.15.1/hadolint-linux-x86_64|c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507
+syft|v1.54.1|https://github.com/anchore/syft/releases/download/v1.54.1/syft_1.54.1_linux_amd64.tar.gz|c069905b391cc4c20a5ba65ad5c10be2a7ba074f8ea6ad203e24d14e303dad47
+grype|v0.120.1|https://github.com/anchore/grype/releases/download/v0.120.1/grype_0.120.1_linux_amd64.tar.gz|0a9ee97ef5ae2ee953b0a80098105052e846cdbe319a57d808b519c33cd1343d
+osv-scanner|v2.6.0|https://github.com/google/osv-scanner/releases/download/v2.6.0/osv-scanner_linux_amd64|ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108
+actionlint|v1.7.12|https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz|8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8

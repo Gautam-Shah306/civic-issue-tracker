@@ -1,0 +1,2 @@
+# Vulnerability Allowlist (D-024)
+# Format: ID|reason|YYYY-MM-DD

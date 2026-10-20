@@ -77,7 +77,7 @@ The three scans the assessment names (image, dependency, secret) are automated g
 |---|---|
 | Pinned versions of OSV-Scanner, Grype, Syft, Hadolint, Checkov, Cosign and ZAP (Gitleaks is pinned at v8.30.1, D-031; verify current status at that time) | Phase 3 |
 | Allowlist entry format and expiry enforcement (the file is `.gitleaks.toml`, D-031; no entries yet) | Phase 3 |
-| Staleness threshold for the Grype database check (maximum age in days) | Phase 3 |
+| Staleness threshold for the Grype database check | Settled: 5 days (D-054) |
 | ZAP baseline scope and rules to ignore | Phase 3 |
 | Cosign verification identity settings (workflow and repo identity) | Phase 3 / Phase 5 |
 | Dependabot ecosystem entries in `.github/dependabot.yml` (policy settled in D-032; `docker-compose` and `github-actions` are live; `npm` and `pip` come with each service in Phase 1, `terraform` with the first `.tf` file) | Phase 1 to Phase 5 |

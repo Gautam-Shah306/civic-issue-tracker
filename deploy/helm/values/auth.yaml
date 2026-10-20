@@ -5,9 +5,7 @@ service:
 image:
   repository: ghcr.io/gautam-shah306/civic-auth
 
-# Gate: Part 0.7 answered "no" because bootstrapAdmin is not safe against concurrent start races;
-# replicas set to 1 per prompt gate instructions (documented under Deviations).
-replicas: 1
+replicas: 2
 
 pdb:
   enabled: false

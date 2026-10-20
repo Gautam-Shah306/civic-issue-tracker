@@ -23,6 +23,17 @@ This directory contains the deployment configurations for the Civic Issue Tracke
   - `30-ingress.yaml`: Traefik Ingress routing `/api` and `/.well-known` to Gateway, `/` to Frontend.
   - `cert-manager/clusterissuers.yaml`: Let's Encrypt staging and production ClusterIssuers.
   - `SECRETS.md`: Specification of all Secret names and keys required across namespaces.
+- `.github/tools.lock`: Checksum-pinned lockfile for all 9 CLI tools (D-054).
+- `.github/scripts/`: Tool installation and validation scripts:
+  - `install-tools.sh`: POSIX installer with pre-execution SHA-256 verification (D-054).
+  - `check-k8s.sh`: Schema validation and policy check script (C-01/C-02).
+  - `check-allowlist.sh`: Vulnerability allowlist validator (D-024, D-054).
+  - `kind-secrets.sh`: Generates throwaway secrets for kind CI smoke test (D-053, D-054).
+- `.github/security/vuln-allowlist.txt`: Vulnerability scan exception allowlist (D-024).
+- `.github/workflows/`:
+  - `k8s.yml`: Kubernetes manifest and Helm chart policy validation (Prompt 5).
+  - `images.yml`: Container image pipeline, Hadolint, Syft SBOM, Grype scan, kind install, and GHCR publish (D-054).
+  - `deps.yml`: OSV-Scanner dependency scanning (D-054).
 
 ---
 
@@ -79,7 +90,7 @@ docker run --rm \
   -w /repo \
   -e PATH=/bin-linux:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
   ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55 \
-  sh .github/scripts/check-k8s.sh
+  sh -c 'apt-get update -qq >/dev/null && apt-get install -y -qq --no-install-recommends ca-certificates >/dev/null 2>&1 && sh .github/scripts/check-k8s.sh'
 ```
 
 ---

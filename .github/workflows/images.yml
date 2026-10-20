@@ -1,0 +1,392 @@
+name: Images
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  pull_request:
+  schedule:
+    - cron: '0 0 * * 0' # Weekly scan every Sunday at 00:00 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: images-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-scan:
+    name: Build & Scan (${{ matrix.service }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - auth
+          - report
+          - notification
+          - analytics
+          - routing
+          - image
+          - gateway
+          - frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Scanners
+        run: |
+          sh .github/scripts/install-tools.sh hadolint syft grype
+
+      - name: Lint Dockerfile with Hadolint
+        run: |
+          hadolint "services/${{ matrix.service }}/Dockerfile"
+
+      - name: Build Container Image
+        run: |
+          docker build --platform linux/amd64 -f "services/${{ matrix.service }}/Dockerfile" --build-arg SERVICE="${{ matrix.service }}" -t "civic-${{ matrix.service }}:ci" .
+
+      - name: Generate Syft SBOM (CycloneDX JSON)
+        run: |
+          syft "civic-${{ matrix.service }}:ci" -o cyclonedx-json > "sbom-${{ matrix.service }}.json"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: "sbom-${{ matrix.service }}"
+          path: "sbom-${{ matrix.service }}.json"
+          retention-days: 30
+
+      - name: Check Vulnerability Allowlist & Build Ignore Config
+        run: |
+          touch .grype.yaml
+          IGNORED_IDS=$(sh .github/scripts/check-allowlist.sh)
+          if [ -n "${IGNORED_IDS}" ]; then
+            echo "ignore:" >> .grype.yaml
+            for id in ${IGNORED_IDS}; do
+              echo "  - vulnerability: ${id}" >> .grype.yaml
+            done
+          fi
+
+      - name: Grype Database Staleness Check
+        run: |
+          # Verify Grype vulnerability database is not older than 5 days (D-054)
+          DB_BUILT=$(grype db status -o json | jq -r '.built // empty')
+          if [ -z "${DB_BUILT}" ]; then
+            echo "WARNING: Grype DB built timestamp empty, updating db..."
+            grype db update
+            DB_BUILT=$(grype db status -o json | jq -r '.built // empty')
+          fi
+          echo "Grype DB built timestamp: ${DB_BUILT}"
+          DB_TS=$(date -d "${DB_BUILT}" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "${DB_BUILT}" +%s 2>/dev/null || echo 0)
+          NOW_TS=$(date +%s)
+          DIFF_DAYS=$(( (NOW_TS - DB_TS) / 86400 ))
+          echo "Grype DB age in days: ${DIFF_DAYS}"
+          if [ "${DIFF_DAYS}" -gt 5 ]; then
+            echo "ERROR: Grype database is ${DIFF_DAYS} days old (> 5 days threshold)" >&2
+            exit 1
+          fi
+
+      - name: Scan Image with Grype
+        run: |
+          mkdir -p scan-results
+          grype "civic-${{ matrix.service }}:ci" -c .grype.yaml -o table > "scan-results/scan-${{ matrix.service }}.txt"
+          cat "scan-results/scan-${{ matrix.service }}.txt"
+
+          echo "### Grype Scan Results: civic-${{ matrix.service }}:ci" >> "${GITHUB_STEP_SUMMARY}"
+          echo '```' >> "${GITHUB_STEP_SUMMARY}"
+          cat "scan-results/scan-${{ matrix.service }}.txt" >> "${GITHUB_STEP_SUMMARY}"
+          echo '```' >> "${GITHUB_STEP_SUMMARY}"
+
+          # Fail on High or Critical findings with fix available
+          grype "civic-${{ matrix.service }}:ci" -c .grype.yaml --only-fixed --fail-on high
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: "scan-${{ matrix.service }}"
+          path: "scan-results/scan-${{ matrix.service }}.txt"
+          retention-days: 30
+
+      - name: Save Image Tar
+        run: |
+          docker save "civic-${{ matrix.service }}:ci" -o "image-${{ matrix.service }}.tar"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: "image-${{ matrix.service }}"
+          path: "image-${{ matrix.service }}.tar"
+          retention-days: 1
+
+  kind-install:
+    name: Minimal Kind Install & Smoke Test
+    needs: build-scan
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Tools
+        run: |
+          sh .github/scripts/install-tools.sh kind kubectl helm
+
+      - name: Download Image Artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: "image-*"
+          path: images/
+          merge-multiple: true
+
+      - name: Load Images into Docker Daemon
+        run: |
+          for tar_file in images/image-*.tar; do
+            echo "Loading ${tar_file}..."
+            docker load -i "${tar_file}"
+          done
+
+      - name: Create Kind Cluster
+        run: |
+          kind create cluster --image "kindest/node:v1.35.8@sha256:07b2536e30b803ed61d1677a79df6115f798ce64c80f9e22f6ed45afd09323c0"
+
+      - name: Load Images into Kind
+        run: |
+          for svc in auth report notification analytics routing image gateway frontend; do
+            echo "Loading civic-${svc}:ci into kind..."
+            kind load docker-image "civic-${svc}:ci"
+          done
+
+      - name: Apply Namespaces and Network Baseline
+        run: |
+          # Note: kind's default CNI does not enforce NetworkPolicies; they are render-checked in check-k8s.sh (D-053).
+          kubectl apply -f deploy/k8s/00-namespaces.yaml
+          kubectl apply -f deploy/k8s/10-network-baseline.yaml
+
+      - name: Generate Throwaway Secrets
+        run: |
+          sh .github/scripts/kind-secrets.sh
+
+      - name: Create db-init-script ConfigMap
+        run: |
+          kubectl create configmap db-init-script \
+            --from-file=db-init.sh=deploy/compose/db-init/db-init.sh \
+            -n civic-data --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy Data Stores
+        run: |
+          kubectl apply -f deploy/k8s/20-postgres.yaml
+          kubectl apply -f deploy/k8s/21-rabbitmq.yaml
+          kubectl apply -f deploy/k8s/22-redis.yaml
+          kubectl apply -f deploy/k8s/23-seaweedfs.yaml
+          kubectl apply -f deploy/k8s/24-mailpit.yaml
+
+          echo "Waiting for data store rollouts in civic-data..."
+          kubectl rollout status statefulset/postgres -n civic-data --timeout=180s
+          kubectl rollout status statefulset/rabbitmq -n civic-data --timeout=180s
+          kubectl rollout status statefulset/redis -n civic-data --timeout=180s
+          kubectl rollout status statefulset/seaweedfs -n civic-data --timeout=180s
+          kubectl rollout status deployment/mailpit -n civic-data --timeout=180s
+
+      - name: Run DB Init Job
+        run: |
+          kubectl apply -f deploy/k8s/25-db-init-job.yaml
+          kubectl wait --for=condition=complete --timeout=120s job/db-init -n civic-data
+
+      - name: Deploy Application Microservices via Helm
+        run: |
+          for svc in auth report notification analytics routing image gateway frontend; do
+            echo "--> Installing Helm release: ${svc}..."
+            helm upgrade --install "${svc}" deploy/helm/civic-service \
+              -n civic-app \
+              -f deploy/helm/values/_common.yaml \
+              -f "deploy/helm/values/${svc}.yaml" \
+              --set "image.repository=civic-${svc}" \
+              --set image.tag=ci \
+              --set image.pullPolicy=Never \
+              --atomic --wait --timeout 5m
+          done
+
+      - name: List Pods and Helm Releases
+        run: |
+          echo "=== All Pods across Namespaces ==="
+          kubectl get pods -A -o wide
+          echo "=== Helm Releases in civic-app ==="
+          helm list -n civic-app
+
+      - name: Smoke Test Services via Port-Forward
+        run: |
+          echo "Port-forwarding Gateway (3000)..."
+          kubectl port-forward -n civic-app svc/gateway 3000:3000 >/dev/null 2>&1 &
+          PID_GW=$!
+
+          echo "Port-forwarding Frontend (8080)..."
+          kubectl port-forward -n civic-app svc/frontend 8080:8080 >/dev/null 2>&1 &
+          PID_FE=$!
+
+          sleep 5
+
+          echo "--> Testing Gateway /readyz (expected HTTP 200)..."
+          curl -fsS -o /dev/null -w "Gateway /readyz HTTP %{http_code}\n" http://127.0.0.1:3000/readyz
+
+          echo "--> Testing Gateway /.well-known/jwks.json (expected HTTP 200)..."
+          curl -fsS -o /dev/null -w "Gateway /.well-known/jwks.json HTTP %{http_code}\n" http://127.0.0.1:3000/.well-known/jwks.json
+
+          echo "--> Testing Frontend /healthz (expected HTTP 200)..."
+          curl -fsS -o /dev/null -w "Frontend /healthz HTTP %{http_code}\n" http://127.0.0.1:8080/healthz
+
+          kill "${PID_GW}" "${PID_FE}" 2>/dev/null || true
+
+      - name: Debug Cluster on Failure
+        if: failure()
+        run: |
+          echo "=== FAILURE DIAGNOSTICS ==="
+          kubectl get pods -A -o wide
+          echo "=== Describe Pods (civic-app) ==="
+          kubectl describe pods -n civic-app
+          echo "=== Describe Pods (civic-data) ==="
+          kubectl describe pods -n civic-data
+          for pod in $(kubectl get pods -n civic-app -o jsonpath='{.items[*].metadata.name}'); do
+            echo "=== Logs for civic-app/${pod} ==="
+            kubectl logs -n civic-app "${pod}" --all-containers --tail=100 || true
+          done
+          for pod in $(kubectl get pods -n civic-data -o jsonpath='{.items[*].metadata.name}'); do
+            echo "=== Logs for civic-data/${pod} ==="
+            kubectl logs -n civic-data "${pod}" --all-containers --tail=100 || true
+          done
+
+  gate:
+    name: Completion Gate (All Workflows on Commit)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    permissions:
+      actions: read
+    steps:
+      - name: Wait for All Other Workflow Runs on Head SHA
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.sha }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Polling workflow runs for commit ${HEAD_SHA} on ${REPO}..."
+          start_time=$(date +%s)
+          max_duration=$((45 * 60)) # at most 45 minutes
+
+          while true; do
+            now=$(date +%s)
+            elapsed=$((now - start_time))
+            if [ "${elapsed}" -ge "${max_duration}" ]; then
+              echo "ERROR: Timed out waiting for other workflows after 45 minutes" >&2
+              exit 1
+            fi
+
+            runs_json=$(gh api "repos/${REPO}/actions/runs?head_sha=${HEAD_SHA}")
+
+            pending=$(echo "${runs_json}" | jq -r --arg id "${CURRENT_RUN_ID}" '
+              .workflow_runs[] | select((.id | tostring) != $id and (.status != "completed")) | .name
+            ')
+
+            if [ -z "${pending}" ]; then
+              echo "All other workflow runs for commit ${HEAD_SHA} have completed."
+              break
+            fi
+
+            echo "Waiting for active workflow runs to complete: $(echo "${pending}" | tr '\n' ' ')"
+            sleep 30
+          done
+
+          # Require that a run of the CI workflow exists (D-030)
+          ci_count=$(echo "${runs_json}" | jq -r '[.workflow_runs[] | select(.name == "CI")] | length')
+          if [ "${ci_count}" -eq 0 ]; then
+            echo "ERROR: No CI workflow run found for commit ${HEAD_SHA}" >&2
+            exit 1
+          fi
+
+          # Fail if any workflow concluded as anything other than success or skipped
+          failed_runs=$(echo "${runs_json}" | jq -r --arg id "${CURRENT_RUN_ID}" '
+            .workflow_runs[] | select((.id | tostring) != $id and (.conclusion != "success" and .conclusion != "skipped")) | "\(.name): \(.conclusion)"
+          ')
+          if [ -n "${failed_runs}" ]; then
+            echo "ERROR: One or more workflow runs did not conclude successfully:" >&2
+            echo "${failed_runs}" >&2
+            exit 1
+          fi
+
+          echo "Gate verification passed: all workflows on commit ${HEAD_SHA} succeeded."
+
+  publish:
+    name: Publish Images to GHCR
+    needs: [build-scan, kind-install, gate]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Download Image Artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: "image-*"
+          path: images/
+          merge-multiple: true
+
+      - name: Log in to GitHub Container Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Tag and Push Images to GHCR
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          OWNER_LOWER=$(echo "${REPO_OWNER}" | tr '[:upper:]' '[:lower:]')
+          echo "{" > image-digests.json
+          first=1
+
+          echo "### Published Images to GHCR" >> "${GITHUB_STEP_SUMMARY}"
+          echo "| Service | Published Tag | Digest |" >> "${GITHUB_STEP_SUMMARY}"
+          echo "|---|---|---|" >> "${GITHUB_STEP_SUMMARY}"
+
+          for svc in auth report notification analytics routing image gateway frontend; do
+            tar_file="images/image-${svc}.tar"
+            echo "Loading ${tar_file}..."
+            docker load -i "${tar_file}"
+
+            target_tag="ghcr.io/${OWNER_LOWER}/civic-${svc}:${COMMIT_SHA}"
+            echo "Tagging civic-${svc}:ci -> ${target_tag}"
+            docker tag "civic-${svc}:ci" "${target_tag}"
+
+            echo "Pushing ${target_tag}..."
+            docker push "${target_tag}"
+
+            digest=$(docker inspect --format='{{index .RepoDigests 0}}' "${target_tag}" 2>/dev/null || docker inspect --format='{{.Id}}' "${target_tag}")
+            echo "Pushed digest for civic-${svc}: ${digest}"
+
+            if [ "${first}" -eq 1 ]; then
+              first=0
+            else
+              echo "," >> image-digests.json
+            fi
+            echo "  \"civic-${svc}\": \"${digest}\"" >> image-digests.json
+            echo "| civic-${svc} | \`${target_tag}\` | \`${digest}\` |" >> "${GITHUB_STEP_SUMMARY}"
+          done
+
+          echo "}" >> image-digests.json
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: image-digests
+          path: image-digests.json
+          retention-days: 30

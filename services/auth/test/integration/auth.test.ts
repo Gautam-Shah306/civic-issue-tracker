@@ -503,6 +503,41 @@ describe('Auth Service Integration Tests (Testcontainers)', () => {
       expect(outboxRes.rows).toHaveLength(1);
     });
 
+    it('concurrent bootstrap calls with the same email produce exactly one user and one outbox event', async () => {
+      const logger = createLogger({ serviceName: 'test-bootstrap-concurrent', level: 'silent' });
+      const validator = createEventValidator(config);
+      const concurrentEmail = `bootstrap.concurrent.${Date.now()}@civic.test`;
+      const bootstrapConfig = loadConfig({
+        ...config,
+        BOOTSTRAP_ADMIN_EMAIL: concurrentEmail,
+        BOOTSTRAP_ADMIN_PASSWORD: bootstrapPass
+      });
+
+      // Clear previous admin to allow bootstrap attempt
+      await pool.query("DELETE FROM users WHERE role = 'admin'");
+
+      // Two concurrent bootstrap calls with the same email (Promise.all)
+      await expect(
+        Promise.all([
+          bootstrapAdmin(pool, bootstrapConfig, logger, validator),
+          bootstrapAdmin(pool, bootstrapConfig, logger, validator)
+        ])
+      ).resolves.toBeDefined();
+
+      const res = await pool.query(
+        "SELECT id, email, role, is_active FROM users WHERE email = $1 AND role = 'admin'",
+        [concurrentEmail]
+      );
+      expect(res.rows).toHaveLength(1);
+      expect(res.rows[0].is_active).toBe(true);
+
+      const outboxRes = await pool.query(
+        "SELECT * FROM outbox_events WHERE event_type = 'user.created' AND payload->>'email' = $1",
+        [concurrentEmail]
+      );
+      expect(outboxRes.rows).toHaveLength(1);
+    });
+
     it('bootstrap never overwrites an existing user', async () => {
       const logger = createLogger({ serviceName: 'test-bootstrap', level: 'silent' });
       const validator = createEventValidator(config);

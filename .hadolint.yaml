@@ -1,0 +1,4 @@
+# Hadolint configuration (Prompt 5, D-054)
+ignored:
+  # DL3059: Separate RUN instructions in the builder stage keep the npm build and npm prune layers apart
+  - DL3059

@@ -1,0 +1,46 @@
+name: Kubernetes Check
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'deploy/**'
+      - '.github/scripts/check-k8s.sh'
+      - '.github/scripts/install-tools.sh'
+      - '.github/tools.lock'
+      - '.github/workflows/k8s.yml'
+  pull_request:
+    paths:
+      - 'deploy/**'
+      - '.github/scripts/check-k8s.sh'
+      - '.github/scripts/install-tools.sh'
+      - '.github/tools.lock'
+      - '.github/workflows/k8s.yml'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: k8s-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check-k8s:
+    name: Check Kubernetes Manifests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Tools
+        run: |
+          sh .github/scripts/install-tools.sh helm kubeconform
+
+      - name: Run check-k8s.sh
+        run: |
+          sh .github/scripts/check-k8s.sh

@@ -1,0 +1,107 @@
+name: Dependency Scan
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  schedule:
+    - cron: '0 0 * * 0' # Weekly scan every Sunday at 00:00 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: deps-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  scan-dependencies:
+    name: OSV-Scanner Lockfiles
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install OSV-Scanner
+        run: |
+          sh .github/scripts/install-tools.sh osv-scanner
+
+      - name: Scan All Lockfiles
+        run: |
+          echo "=== Locating all package-lock.json and uv.lock files ==="
+          LOCKFILES=$(find . \( -name "package-lock.json" -o -name "uv.lock" \) \
+            -not -path "*/node_modules/*" \
+            -not -path "*/.venv/*" \
+            -not -path "*/.git/*" | sort)
+
+          echo "Found lockfiles:"
+          echo "${LOCKFILES}"
+
+          LOCK_ARGS=""
+          for lf in ${LOCKFILES}; do
+            LOCK_ARGS="${LOCK_ARGS} --lockfile=${lf}"
+          done
+
+          echo "--> Running OSV-Scanner in human-readable mode..."
+          osv-scanner ${LOCK_ARGS} || true
+
+          echo "--> Running OSV-Scanner in JSON mode for severity filtering..."
+          set +e
+          osv-scanner ${LOCK_ARGS} --format json > osv-report.json
+          OSV_RC=$?
+          set -e
+          if [ "${OSV_RC}" -ne 0 ] && [ "${OSV_RC}" -ne 1 ]; then
+            echo "ERROR: osv-scanner failed with exit code ${OSV_RC}" >&2
+            exit 1
+          fi
+          jq -e 'has("results")' osv-report.json > /dev/null || { echo "ERROR: osv-report.json is not a valid OSV report" >&2; exit 1; }
+
+          # Filter JSON with jq for High or Critical vulnerabilities that have a fix available
+          # OSV schema checks: severity level HIGH/CRITICAL or CVSS score >= 7.0, and affected.ranges.events.fixed
+          FAILING_VULNS=$(jq -r '
+            [
+              .results[]?.packages[]? |
+              .package as $pkg |
+              .vulnerabilities[]? |
+              select(
+                # Check for fix available
+                ([.affected[]?.ranges[]?.events[]? | select(.fixed != null)] | length > 0)
+                and
+                (
+                  # Check for HIGH or CRITICAL severity
+                  (.database_specific?.severity? | tostring | ascii_upcase | test("HIGH|CRITICAL"))
+                  or
+                  ([.severity[]? | select((.score? | tostring | tonumber? // 0) >= 7.0)] | length > 0)
+                )
+              ) |
+              {
+                id: .id,
+                package: $pkg.name,
+                version: $pkg.version,
+                summary: (.summary // "No summary")
+              }
+            ]
+          ' osv-report.json)
+
+          COUNT=$(echo "${FAILING_VULNS}" | jq 'length')
+          echo "Found ${COUNT} High/Critical vulnerabilities with available fix."
+
+          if [ "${COUNT}" -gt 0 ]; then
+            echo "ERROR: Disallowed vulnerabilities detected:" >&2
+            echo "${FAILING_VULNS}" | jq . >&2
+            exit 1
+          fi
+
+          echo "OSV-Scanner dependency check passed cleanly."
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: osv-dependency-report
+          path: osv-report.json
+          retention-days: 30
