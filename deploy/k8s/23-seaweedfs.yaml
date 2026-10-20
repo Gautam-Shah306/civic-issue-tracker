@@ -43,7 +43,7 @@ spec:
         - name: seaweedfs
           image: chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882
           imagePullPolicy: IfNotPresent
-          command:
+          args:
             - server
             - -s3
             - -dir=/data
@@ -53,9 +53,16 @@ spec:
               protocol: TCP
           securityContext:
             allowPrivilegeEscalation: false
+            # Entrypoint starts as root and drops to the service user with su-exec
             capabilities:
               drop:
                 - ALL
+              add:
+                - CHOWN
+                - DAC_OVERRIDE
+                - FOWNER
+                - SETGID
+                - SETUID
           resources:
             requests:
               cpu: 50m
@@ -75,21 +82,18 @@ spec:
                   name: seaweedfs-credentials
                   key: AWS_SECRET_ACCESS_KEY
           startupProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: 8333
             periodSeconds: 2
             failureThreshold: 30
           livenessProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: 8333
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 3
           readinessProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: 8333
             periodSeconds: 5
             timeoutSeconds: 3

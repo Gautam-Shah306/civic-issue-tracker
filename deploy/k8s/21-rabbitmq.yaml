@@ -52,9 +52,16 @@ spec:
               protocol: TCP
           securityContext:
             allowPrivilegeEscalation: false
+            # Entrypoint starts as root, fixes data-dir ownership, then drops to the service user
             capabilities:
               drop:
                 - ALL
+              add:
+                - CHOWN
+                - DAC_OVERRIDE
+                - FOWNER
+                - SETGID
+                - SETUID
           resources:
             requests:
               cpu: 100m
