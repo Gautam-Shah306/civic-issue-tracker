@@ -6,6 +6,9 @@ metadata:
   labels:
     app.kubernetes.io/name: db-init
     app.kubernetes.io/part-of: civic-issue-tracker
+  annotations:
+    checkov.io/skip1: CKV_K8S_35=Database initialization script requires passwords passed via environment variables
+    checkov.io/skip2: CKV_K8S_40=Image uses standard vendor-assigned non-root UID 999
 spec:
   backoffLimit: 3
   template:
@@ -15,7 +18,11 @@ spec:
         app.kubernetes.io/part-of: civic-issue-tracker
     spec:
       restartPolicy: Never
+      automountServiceAccountToken: false
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -27,6 +34,10 @@ spec:
             - /scripts/db-init.sh
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
             capabilities:
               drop:
                 - ALL
@@ -95,11 +106,15 @@ spec:
           volumeMounts:
             - name: init-script
               mountPath: /scripts
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: init-script
           configMap:
             name: db-init-script
             defaultMode: 0755
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

@@ -1,0 +1,135 @@
+name: Infrastructure & Policy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'infra/**'
+      - 'deploy/**'
+      - '.github/tools.lock'
+      - '.github/scripts/install-tools.sh'
+      - '.github/scripts/check-infra-policy.sh'
+      - '.checkov.yaml'
+      - '.tflint.hcl'
+      - '.github/workflows/infra.yml'
+  pull_request:
+    paths:
+      - 'infra/**'
+      - 'deploy/**'
+      - '.github/tools.lock'
+      - '.github/scripts/install-tools.sh'
+      - '.github/scripts/check-infra-policy.sh'
+      - '.checkov.yaml'
+      - '.tflint.hcl'
+      - '.github/workflows/infra.yml'
+  schedule:
+    - cron: '0 0 * * 0' # Weekly scan every Sunday at 00:00 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: infra-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  terraform:
+    name: Terraform Format, Validate & Lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Tools
+        run: |
+          sh .github/scripts/install-tools.sh terraform tflint
+
+      - name: Check Infra Policy
+        run: |
+          sh .github/scripts/check-infra-policy.sh
+
+      - name: Terraform Format Check
+        run: |
+          terraform fmt -check -recursive infra/terraform
+
+      - name: Terraform Init & Validate
+        run: |
+          cd infra/terraform/envs/prod
+          terraform init -backend=false
+          terraform validate
+
+      - name: TFLint
+        run: |
+          tflint --chdir=infra/terraform/envs/prod
+
+  shell:
+    name: ShellCheck Scripts & Rendered Startup Script
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Tools
+        run: |
+          sh .github/scripts/install-tools.sh terraform shellcheck
+
+      - name: ShellCheck Repository Scripts
+        run: |
+          shellcheck .github/scripts/*.sh deploy/bootstrap/*.sh
+
+      - name: ShellCheck Rendered Startup Script
+        run: |
+          cd infra/terraform/envs/prod
+          terraform init -backend=false
+          RENDERED=$(mktemp)
+          echo 'module.k3s_bootstrap.startup_script' | terraform console -var-file=terraform.tfvars.example | grep -A 100000 '^#!/usr/bin/env bash' | grep -v '^EOT$' > "$RENDERED"
+          shellcheck "$RENDERED"
+          rm -f "$RENDERED"
+
+  checkov:
+    name: Checkov Static Analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Helm
+        run: |
+          sh .github/scripts/install-tools.sh helm
+
+      - name: Set up Checkov venv
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --require-hashes -r .github/checkov-requirements.txt
+
+      - name: Render Kubernetes Manifests
+        run: |
+          mkdir -p /tmp/k8s-render
+          for svc in auth report notification analytics routing image gateway frontend; do
+            helm template "$svc" deploy/helm/civic-service \
+              -f deploy/helm/values/_common.yaml \
+              -f "deploy/helm/values/${svc}.yaml" \
+              --set image.tag=ci > "/tmp/k8s-render/${svc}.yaml"
+          done
+          cp deploy/k8s/*.yaml /tmp/k8s-render/
+
+      - name: Run Checkov on Terraform
+        run: |
+          .venv/bin/checkov --config-file .checkov.yaml -d infra/terraform --framework terraform
+
+      - name: Run Checkov on Kubernetes
+        run: |
+          .venv/bin/checkov --config-file .checkov.yaml -d /tmp/k8s-render --framework kubernetes

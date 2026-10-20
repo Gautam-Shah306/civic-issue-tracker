@@ -93,8 +93,8 @@
 
 | Decision | Settle in |
 |---|---|
-| Final region, machine type and disk size | Phase 5 |
-| Free DNS provider (DuckDNS or similar) | Phase 5 |
+| Final region, machine type and disk size | Settled as defaults in D-056 |
+| Free DNS provider | Settled: DuckDNS (D-056) |
 | Free-tier email service for the live demo | Phase 5 |
 | Whether the live period is extended (which would favour AWS) | Phase 5 |
 | Date to run `terraform destroy` | Phase 5 |

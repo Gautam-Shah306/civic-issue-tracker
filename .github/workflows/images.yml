@@ -168,7 +168,7 @@ jobs:
 
       - name: Apply Namespaces and Network Baseline
         run: |
-          # Note: kind's default CNI does not enforce NetworkPolicies; they are render-checked in check-k8s.sh (D-053).
+          # Note: kind's default CNI does enforce NetworkPolicies (D-055), so the install job actively tests them.
           kubectl apply -f deploy/k8s/00-namespaces.yaml
           kubectl apply -f deploy/k8s/10-network-baseline.yaml
 
@@ -390,3 +390,150 @@ jobs:
           name: image-digests
           path: image-digests.json
           retention-days: 30
+
+  deploy:
+    name: Deploy to Production VM (IAP Tunnel)
+    needs: publish
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download Image Digests Artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: image-digests
+          path: .
+
+      - name: Authenticate to Google Cloud via WIF
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}
+          GCP_WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
+          GCP_DEPLOY_SA: ${{ vars.GCP_DEPLOY_SA }}
+          GCP_ZONE: ${{ vars.GCP_ZONE }}
+          GCP_INSTANCE: ${{ vars.GCP_INSTANCE }}
+          PUBLIC_HOST: ${{ vars.PUBLIC_HOST }}
+        run: |
+          sh .github/scripts/gcp-auth.sh
+
+      - name: Prepare Workspace Directory on Production VM
+        env:
+          GCP_ZONE: ${{ vars.GCP_ZONE }}
+          GCP_INSTANCE: ${{ vars.GCP_INSTANCE }}
+        run: |
+          echo "--> Initializing ~/workspace on VM..."
+          gcloud compute ssh --quiet --tunnel-through-iap \
+            --zone="${GCP_ZONE}" \
+            "${GCP_INSTANCE}" \
+            --command="rm -rf ~/workspace && mkdir -p ~/workspace"
+
+      - name: Transfer Deployment Artifacts to Production VM via IAP
+        env:
+          GCP_ZONE: ${{ vars.GCP_ZONE }}
+          GCP_INSTANCE: ${{ vars.GCP_INSTANCE }}
+        run: |
+          echo "--> Transferring deploy directory, image-digests.json, and scripts to VM..."
+          gcloud compute scp --quiet --recurse --tunnel-through-iap \
+            --zone="${GCP_ZONE}" \
+            deploy image-digests.json .github/scripts/deploy-remote.sh \
+            "${GCP_INSTANCE}:~/workspace/"
+
+      - name: Execute Remote Deployment via IAP Tunnel
+        env:
+          GCP_ZONE: ${{ vars.GCP_ZONE }}
+          GCP_INSTANCE: ${{ vars.GCP_INSTANCE }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          echo "--> Running deploy-remote.sh on VM with sudo..."
+          gcloud compute ssh --quiet --tunnel-through-iap \
+            --zone="${GCP_ZONE}" \
+            "${GCP_INSTANCE}" \
+            --command="sudo bash ~/workspace/deploy-remote.sh ${COMMIT_SHA}"
+
+      - name: Public Smoke Test
+        env:
+          PUBLIC_HOST: ${{ vars.PUBLIC_HOST }}
+          CERT_ISSUER: ${{ vars.CERT_ISSUER }}
+        run: |
+          ISSUER="${CERT_ISSUER:-letsencrypt-staging}"
+          max_retries=12
+          interval=10
+
+          echo "--> Running smoke tests for host https://${PUBLIC_HOST} in mode: ${ISSUER}"
+
+          if [ "${ISSUER}" = "letsencrypt-prod" ]; then
+            echo "--> Production mode: verifying HTTPS endpoints..."
+            test_https() {
+              url="$1"
+              echo "Testing ${url}..."
+              for i in $(seq 1 "${max_retries}"); do
+                http_code=$(curl -sS -o /dev/null -w "%{http_code}" "${url}" || true)
+                if [ "${http_code}" = "200" ]; then
+                  echo "  [PASS] ${url} returned HTTP 200 (attempt ${i})"
+                  return 0
+                fi
+                echo "  Attempt ${i}/${max_retries}: returned HTTP ${http_code}. Retrying in ${interval}s..."
+                sleep "${interval}"
+              done
+              echo "ERROR: Smoke test failed for ${url} after ${max_retries} attempts" >&2
+              return 1
+            }
+
+            test_https "https://${PUBLIC_HOST}/healthz"
+            test_https "https://${PUBLIC_HOST}/.well-known/jwks.json"
+            test_https "https://${PUBLIC_HOST}/api/v1/public/reports"
+            echo "Production HTTPS smoke tests passed successfully."
+          else
+            echo "--> Staging mode: verifying HTTP redirect and staging certificate..."
+            redirect_ok=0
+            for i in $(seq 1 "${max_retries}"); do
+              http_info=$(curl -sS -o /dev/null -w "%{http_code} %{redirect_url}" "http://${PUBLIC_HOST}/healthz" || true)
+              status=$(echo "${http_info}" | awk '{print $1}')
+              loc=$(echo "${http_info}" | awk '{print $2}')
+              if [ "${status}" = "301" ] || [ "${status}" = "308" ]; then
+                case "${loc}" in
+                  https://*)
+                    echo "  [PASS] http://${PUBLIC_HOST}/healthz redirected to ${loc} with HTTP ${status} (attempt ${i})"
+                    redirect_ok=1
+                    break
+                    ;;
+                esac
+              fi
+              echo "  Attempt ${i}/${max_retries}: HTTP redirect returned status ${status}, loc ${loc}. Retrying in ${interval}s..."
+              sleep "${interval}"
+            done
+
+            if [ "${redirect_ok}" -ne 1 ]; then
+              echo "ERROR: HTTP to HTTPS redirect verification failed" >&2
+              exit 1
+            fi
+
+            cert_ok=0
+            for i in $(seq 1 "${max_retries}"); do
+              issuer_str=$(echo | openssl s_client -connect "${PUBLIC_HOST}:443" -servername "${PUBLIC_HOST}" 2>/dev/null | openssl x509 -noout -issuer 2>/dev/null || true)
+              if echo "${issuer_str}" | grep -qi "STAGING"; then
+                echo "  [PASS] TLS certificate issuer verified containing STAGING: ${issuer_str} (attempt ${i})"
+                cert_ok=1
+                break
+              fi
+              echo "  Attempt ${i}/${max_retries}: issuer was '${issuer_str}'. Retrying in ${interval}s..."
+              sleep "${interval}"
+            done
+
+            if [ "${cert_ok}" -ne 1 ]; then
+              echo "ERROR: TLS certificate issuer verification failed (expected STAGING in issuer)" >&2
+              exit 1
+            fi
+            echo "Staging smoke tests passed successfully."
+          fi

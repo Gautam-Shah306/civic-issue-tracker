@@ -37,86 +37,114 @@ This directory contains the deployment configurations for the Civic Issue Tracke
 
 ---
 
-## 2. Cluster Bootstrap Order (PLAN — Not Yet Run)
+## 2. Cluster Bootstrap Order on the VM (D-056)
 
-The bootstrap sequence must be executed in strict dependency order:
+The bootstrap sequence on the provisioned GCP VM is executed in four strict stages (run as root with `sudo`):
 
-1. **Namespaces:** Apply `deploy/k8s/00-namespaces.yaml` to enforce Pod Security Standards.
-2. **Baseline Network Policies:** Apply `deploy/k8s/10-network-baseline.yaml` to establish default-deny rules and DNS allowances.
-3. **Secrets:** Apply SealedSecrets for `civic-data` and `civic-app` (see `deploy/k8s/SECRETS.md`).
-4. **Data Stores:** Apply data store manifests in `civic-data`:
+1. **Platform Stage:**
+   Installs cert-manager and Sealed Secrets from verified charts, applies baseline namespaces and network policies, configures ClusterIssuers, and registers the db-init ConfigMap:
    ```bash
-   kubectl apply -f deploy/k8s/20-postgres.yaml
-   kubectl apply -f deploy/k8s/21-rabbitmq.yaml
-   kubectl apply -f deploy/k8s/22-redis.yaml
-   kubectl apply -f deploy/k8s/23-seaweedfs.yaml
-   kubectl apply -f deploy/k8s/24-mailpit.yaml
+   sudo ACME_EMAIL=admin@example.com bash deploy/bootstrap/bootstrap.sh platform
    ```
-5. **Database Initialization:** Mount single-source script and run initialization Job:
+
+2. **Seal Secrets:**
+   Generates cryptographic credentials, creates SealedSecrets, applies them to the cluster, and records the initial administrator credentials in `/root/civic-admin-credentials` (mode 0600):
    ```bash
-   kubectl create configmap db-init-script \
-     --from-file=db-init.sh=deploy/compose/db-init/db-init.sh \
-     -n civic-data --dry-run=client -o yaml | kubectl apply -f -
-   kubectl apply -f deploy/k8s/25-db-init-job.yaml
+   sudo bash deploy/bootstrap/seal-secrets.sh
    ```
-6. **Application Microservices (Helm Releases):** Deploy each service as an independent Helm release using the shared chart:
+
+3. **Data Stage:**
+   Verifies all required Secrets exist, rolls out PostgreSQL, RabbitMQ, Redis, SeaweedFS, and Mailpit, and executes the PostGIS initialization job:
    ```bash
-   # Deploy order: auth -> report -> notification -> analytics -> routing -> image -> gateway -> frontend
-   for svc in auth report notification analytics routing image gateway frontend; do
-     helm upgrade --install "${svc}" deploy/helm/civic-service \
-       -n civic-app \
-       -f deploy/helm/values/_common.yaml \
-       -f "deploy/helm/values/${svc}.yaml" \
-       --set image.tag="<commit-sha>"
-   done
+   sudo bash deploy/bootstrap/bootstrap.sh data
    ```
-7. **Ingress and Certificates:**
+
+4. **First Application Deploy:**
+   Deploys all 8 microservices via Helm and applies the public ingress:
    ```bash
-   kubectl apply -f deploy/k8s/cert-manager/clusterissuers.yaml
-   kubectl apply -f deploy/k8s/30-ingress.yaml
+   sudo bash .github/scripts/deploy-remote.sh
    ```
 
 ---
 
-## 3. Validation and C2 Container Command
+## 3. Operator Access via IAP Tunnel
 
-Manifests are validated for schema correctness (Kubernetes v1.35.0 strict), chart linting, and policy constraints via `.github/scripts/check-k8s.sh`.
+Public port 22 is closed to the internet. Access is mediated strictly through the Google Cloud Identity-Aware Proxy (IAP) CIDR `35.235.240.0/20`.
 
-### Exact C2 Container Command:
+### SSH to the VM:
 ```bash
-docker run --rm \
-  -v D:\Semester_7\CNA\project\civic-issue-tracker:/repo:ro \
-  -v D:\Semester_7\CNA\project\civic-issue-tracker\.local\bin-linux:/bin-linux:ro \
-  -w /repo \
-  -e PATH=/bin-linux:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-  ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55 \
-  sh -c 'apt-get update -qq >/dev/null && apt-get install -y -qq --no-install-recommends ca-certificates >/dev/null 2>&1 && sh .github/scripts/check-k8s.sh'
+gcloud compute ssh civic-vm --zone=asia-south1-a --tunnel-through-iap
+```
+
+### Port-Forwarding Internal Stores (Mailpit, RabbitMQ, SeaweedFS):
+To access management dashboards locally without exposing ports publicly, establish an SSH tunnel with local port forwarding:
+```bash
+# 1. Establish IAP SSH tunnel forwarding local ports to the VM:
+gcloud compute ssh civic-vm --zone=asia-south1-a --tunnel-through-iap -- \
+  -L 8025:127.0.0.1:8025 \
+  -L 15672:127.0.0.1:15672 \
+  -L 8333:127.0.0.1:8333
+
+# 2. In the VM session (or via background task), forward cluster ClusterIP services to localhost:
+kubectl port-forward -n civic-data svc/mailpit 8025:8025 --address 127.0.0.1 &
+kubectl port-forward -n civic-data svc/rabbitmq 15672:15672 --address 127.0.0.1 &
+kubectl port-forward -n civic-data svc/seaweedfs 8333:8333 --address 127.0.0.1 &
+
+# 3. Access management interfaces on your local workstation:
+# Mailpit UI:    http://localhost:8025
+# RabbitMQ UI:   http://localhost:15672
+# SeaweedFS S3:  http://localhost:8333
 ```
 
 ---
 
-## 4. Verified Tools and Checksums
+## 4. Validation and Policy Checks
 
-Pinned binary releases (at least 14 days old, verified via publisher SHA-256):
-
-- **Helm `v4.3.0`** (Published: 2026-09-09T22:19:58Z):
-  - Windows (`helm.exe`): `304ea163cce4d9ad14e189c01846c6a34de9cfdfe48536ae54b2e8ba7884e67c` (PASS)
-  - Linux (`helm`): `86584a54def73570558f66f5111cc53dfed56689637ae32c1201205d494f54fb` (PASS)
-- **Kubeconform `v0.8.0`** (Published: 2026-06-04T20:02:51Z):
-  - Windows (`kubeconform.exe`): `e3f56102bcf4f50b034a567e2482a1c5330799983ddd655952310211aef73d93` (PASS)
-  - Linux (`kubeconform`): `9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883` (PASS)
+Manifests are validated for schema correctness (Kubernetes v1.35.0 strict), chart linting, and policy constraints via `.github/scripts/check-k8s.sh` and static analysis via `.github/scripts/check-infra-policy.sh` and Checkov.
 
 ---
 
-## 5. Verified only at cluster time (Prompts 6-7)
+## 5. Verified only at cluster time (Prompts 6-7, D-055, D-056)
 
-The following items cannot be fully verified via static render checks and are scheduled for cluster runtime validation:
+The following items cannot be fully verified via static checks or kind CI runs and are scheduled for live cluster validation on GCP:
 
-- Traefik pod label and ingress class name `traefik`.
-- HTTP-to-HTTPS redirect and `TRUST_PROXY` hop count behind Traefik.
-- Client IP preservation behind ServiceLB.
-- Data-store pod users and volume ownership on `local-path` storage.
-- SeaweedFS and RabbitMQ runtime behavior under the restricted NetworkPolicies.
-- HPA scaling behavior under synthetic load with 50m CPU requests.
-- Actual pod memory usage vs configured limits.
-- Image service bucket creation: Image service creates `civic-incoming` and `civic-images` buckets idempotently on startup (`services/image/app/storage.py:36-55`); verify S3 connectivity and bucket creation at cluster time.
+- **Two Replicas for Gateway and Report:** Kind CI runs 1 replica due to absence of metrics-server; two replicas with HPA scaling are verified on k3s (D-055 item 9).
+- **Traefik Redirect and Client IP:** HTTP-to-HTTPS 301 permanent redirect and client IP preservation (`externalTrafficPolicy: Local`) verified through Traefik HelmChartConfig.
+- **VM Startup Script:** Execution of `startup.sh.tftpl` on a real Ubuntu 24.04 GCP Compute Engine instance (k3s binary download, SHA-256 verification, and service initialization).
+- **Workload Identity Federation:** The OIDC token exchange from GitHub Actions to Google Cloud STS and deploy service account impersonation (`.github/scripts/gcp-auth.sh`).
+- **OS Login Admin Permissions:** `roles/compute.osAdminLogin` and IAP tunnel authorization for the deploy service account.
+- **Data-store Volume Ownership:** SeaweedFS, RabbitMQ, and PostgreSQL runtime permissions on k3s `local-path` persistent storage.
+- **Image Service S3 Bucket Creation:** Idempotent S3 bucket initialization on SeaweedFS at cluster time.
+
+---
+
+## 6. GitHub Actions Continuous Deployment Setup
+
+### Numeric GitHub Owner ID
+For Workload Identity Federation OIDC trust pinning, Terraform requires the immutable numeric GitHub user/organization ID (`github_repository_owner_id`).
+To look up your numeric ID, query the public GitHub API:
+```bash
+curl -s https://api.github.com/users/<owner> | jq .id
+```
+This numeric ID is configured strictly in `infra/terraform/envs/prod/terraform.tfvars` (never committed to git).
+
+### Repository Variables for Deploy Job
+The automated CD deploy job in `.github/workflows/images.yml` requires the following repository variables configured in GitHub repository settings:
+- `DEPLOY_ENABLED`
+- `GCP_PROJECT_ID`
+- `GCP_PROJECT_NUMBER`
+- `GCP_WIF_PROVIDER`
+- `GCP_DEPLOY_SA`
+- `GCP_ZONE`
+- `GCP_INSTANCE`
+- `PUBLIC_HOST`
+- `CERT_ISSUER`
+
+> [!IMPORTANT]
+> `DEPLOY_ENABLED` must remain unset (or empty) until the VM is provisioned, k3s is active, and cluster bootstrap stages 1–3 have completed.
+
+### Staging-then-Production Issuer Switch
+The application initially deploys with the Let's Encrypt staging issuer to verify ACME challenge validation and routing without hitting Let's Encrypt production rate limits.
+To switch to production:
+1. Edit the `cert-manager.io/cluster-issuer` annotation in `deploy/k8s/30-ingress.yaml` to specify `letsencrypt-prod`.
+2. Update the repository variable `CERT_ISSUER` to `letsencrypt-prod`.

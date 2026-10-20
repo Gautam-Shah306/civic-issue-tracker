@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Marker file for idempotency: subsequent boots skip installation
+BOOTSTRAP_MARKER="/var/lib/k3s-bootstrap-completed"
+if [ -f "$${BOOTSTRAP_MARKER}" ]; then
+    echo "k3s bootstrap already completed. Skipping installation."
+    exit 0
+fi
+
+echo "Starting Civic Issue Tracker k3s bootstrap..."
+
+# Disable swap per Kubernetes requirements
+swapoff -a
+sed -i.bak '/ swap / s/^\(.*\)$$/#\1/g' /etc/fstab || true
+
+TMP_DIR=$(mktemp -d /tmp/k3s-bootstrap.XXXXXX)
+trap 'rm -rf "$${TMP_DIR}"' EXIT
+
+# 1. Download and verify k3s binary
+echo "Downloading k3s binary (${k3s_version})..."
+K3S_BIN_URL="https://github.com/k3s-io/k3s/releases/download/${k3s_version}/k3s"
+curl -fsSL "$${K3S_BIN_URL}" -o "$${TMP_DIR}/k3s"
+
+echo "Verifying k3s binary sha256..."
+echo "${k3s_sha256}  $${TMP_DIR}/k3s" | sha256sum -c -
+
+chmod +x "$${TMP_DIR}/k3s"
+cp "$${TMP_DIR}/k3s" /usr/local/bin/k3s
+
+# 2. Download and verify k3s install.sh script
+echo "Downloading k3s install.sh (${k3s_version})..."
+K3S_INSTALL_URL="https://raw.githubusercontent.com/k3s-io/k3s/${k3s_version}/install.sh"
+curl -fsSL "$${K3S_INSTALL_URL}" -o "$${TMP_DIR}/install.sh"
+
+echo "Verifying k3s install.sh sha256..."
+echo "${k3s_install_sh_sha256}  $${TMP_DIR}/install.sh" | sha256sum -c -
+
+chmod +x "$${TMP_DIR}/install.sh"
+
+# 3. Configure k3s (write-kubeconfig-mode 0640, secrets encryption enabled)
+mkdir -p /etc/rancher/k3s
+cat <<'EOF' > /etc/rancher/k3s/config.yaml
+write-kubeconfig-mode: "0640"
+secrets-encryption: true
+tls-san:
+  - "${public_host}"
+EOF
+
+# 4. Write Traefik HelmChartConfig
+mkdir -p /var/lib/rancher/k3s/server/manifests
+cat <<'EOF' > /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+${chomp(traefik_config)}
+EOF
+
+# 5. Run k3s installation with verified binary
+echo "Installing k3s..."
+INSTALL_K3S_SKIP_DOWNLOAD=true INSTALL_K3S_BIN_DIR=/usr/local/bin "$${TMP_DIR}/install.sh"
+
+# 6. Kubectl symlink to k3s binary
+ln -sf /usr/local/bin/k3s /usr/local/bin/kubectl
+
+# 7. Download and verify Helm
+echo "Downloading Helm (${helm_version})..."
+HELM_URL="https://get.helm.sh/helm-${helm_version}-linux-amd64.tar.gz"
+curl -fsSL "$${HELM_URL}" -o "$${TMP_DIR}/helm.tar.gz"
+
+echo "Verifying Helm sha256..."
+echo "${helm_sha256}  $${TMP_DIR}/helm.tar.gz" | sha256sum -c -
+
+tar -xzf "$${TMP_DIR}/helm.tar.gz" -C "$${TMP_DIR}"
+cp "$${TMP_DIR}/linux-amd64/helm" /usr/local/bin/helm
+chmod +x /usr/local/bin/helm
+
+# 8. Download and verify kubeseal
+echo "Downloading kubeseal (${kubeseal_version})..."
+KUBESEAL_URL="https://github.com/bitnami-labs/sealed-secrets/releases/download/v${kubeseal_version}/kubeseal-${kubeseal_version}-linux-amd64.tar.gz"
+curl -fsSL "$${KUBESEAL_URL}" -o "$${TMP_DIR}/kubeseal.tar.gz"
+
+echo "Verifying kubeseal sha256..."
+echo "${kubeseal_sha256}  $${TMP_DIR}/kubeseal.tar.gz" | sha256sum -c -
+
+tar -xzf "$${TMP_DIR}/kubeseal.tar.gz" -C "$${TMP_DIR}" kubeseal
+cp "$${TMP_DIR}/kubeseal" /usr/local/bin/kubeseal
+chmod +x /usr/local/bin/kubeseal
+
+# 9. Mark bootstrap as completed
+touch "$${BOOTSTRAP_MARKER}"
+echo "Civic Issue Tracker k3s bootstrap completed successfully."

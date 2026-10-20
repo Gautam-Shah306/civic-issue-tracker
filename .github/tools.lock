@@ -7,3 +7,7 @@ syft|v1.54.1|https://github.com/anchore/syft/releases/download/v1.54.1/syft_1.54
 grype|v0.120.1|https://github.com/anchore/grype/releases/download/v0.120.1/grype_0.120.1_linux_amd64.tar.gz|0a9ee97ef5ae2ee953b0a80098105052e846cdbe319a57d808b519c33cd1343d
 osv-scanner|v2.6.0|https://github.com/google/osv-scanner/releases/download/v2.6.0/osv-scanner_linux_amd64|ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108
 actionlint|v1.7.12|https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz|8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+terraform|v1.16.5|https://releases.hashicorp.com/terraform/1.16.5/terraform_1.16.5_linux_amd64.zip|2bc2fcfff033265c9e02ca0351f01794eb122f62a9b2a49a3294b9e49eaab5e4
+tflint|v0.64.0|https://github.com/terraform-linters/tflint/releases/download/v0.64.0/tflint_linux_amd64.zip|cca9d13e2e1d7a2c627af60ff899a3c9b74212899416aeb96ec764d2ef954537
+shellcheck|v0.11.0|https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.gz|b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6
+kubeseal|v0.40.0|https://github.com/bitnami-labs/sealed-secrets/releases/download/v0.40.0/kubeseal-0.40.0-linux-amd64.tar.gz|9314c35916646e9d59c8f06b1314574b4e79c4d76f079433607ed7b697bb5eb7

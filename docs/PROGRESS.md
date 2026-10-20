@@ -7,10 +7,10 @@
 ## Status
 
 - **Current phase:** v1 cycle 6, Kubernetes manifests (D-039; the phases in `11` are superseded by the cycles below)
-- **Last verified step:** Prompt 4: shared Helm chart and Kubernetes manifests (D-051 to D-053); CI green on `main`
+- **Last verified step:** Prompt 5: image pipeline, scans, kind install, GHCR publish (D-054, D-055); CI green on `main`
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
 - **Cloud account:** not created (by design; created in v1 cycle 8, D-039)
-- **Next action:** verify Prompt 5 (image pipeline, scans, kind install, GHCR publish, D-054), then Prompt 6. Antigravity prompts used: 5 of 9
+- **Next action:** verify Prompt 6 (Terraform, cluster scripts, deploy job, Checkov, D-055, D-056), then Prompt 7. Antigravity prompts used: 7 of 9
 
 ## v1 plan (D-039)
 
@@ -72,7 +72,7 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 ### Phase 5: Go-live
 - [ ] Hosting checklist in `10` re-verified; GCP account created
 - [ ] Terraform applied manually; cluster bootstrapped; DNS and TLS working
-- [ ] Dependabot `terraform` entry added with the first `.tf` file (earlier than Phase 5 if the code is written earlier)
+- [x] Dependabot `terraform` entry added with the first `.tf` file (earlier than Phase 5 if the code is written earlier)
 - [ ] Deployed through the pipeline; smoke tests pass
 - [ ] README and architecture diagram complete; demo rehearsed
 - [ ] Live for about a month, then `terraform destroy`
@@ -85,6 +85,8 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 - Notification mailer is plain SMTP only (ignoreTLS); add TLS and authentication before a real email provider is used (D-054)
 - Set the 8 civic-* GHCR packages to public after the first publish run (D-018)
 - Enable CodeQL default setup in the repository settings (D-054)
+- Allowlist entries for zlib and pcre2 expire on 2026-10-27 (D-055)
+- Re-run the doc 10 sign-up checklist (credit, card, machine types, pricing, budget alerts) before creating the GCP account
 
 ## Log
 
@@ -113,4 +115,6 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 | 2026-10-18 | Prompt 2: frontend A (foundation, design system, public views, auth, citizen journey) (D-049) | Verified |
 | 2026-10-18 | Prompt 3: frontend B (staff and admin views, frontend CI fix, backend test & routing gaps) (D-050) | Verified |
 | 2026-10-19 | Prompt 4: shared Helm chart and Kubernetes manifests (D-051, D-052, D-053) | Verified |
-| 2026-10-20 | Prompt 5: image pipeline, scans, kind install in CI, GHCR publish (D-054) | In progress |
+| 2026-10-20 | Prompt 5: image pipeline, scans, kind install in CI, GHCR publish (D-054, D-055) | Verified |
+| 2026-10-20 | Prompt 6: Terraform, cluster scripts, deploy job, Checkov (D-055, D-056) | In progress |
+| 2026-10-21 | Prompt 7: fixes from the Prompt 6 review (deploy script layout, STS token type, OS Login API, OIDC owner pin, Checkov scoping, k8s hardening) | In progress |

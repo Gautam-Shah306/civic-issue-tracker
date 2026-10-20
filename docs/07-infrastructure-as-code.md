@@ -80,10 +80,10 @@ The repo holds the Terraform code, a README explaining the layers, and the plan 
 
 | Decision | Settle in |
 |---|---|
-| Exact machine type, disk size and region (Mumbai region is the likely choice for latency) | Phase 5, after re-checking pricing |
-| Terraform provider and Terraform CLI versions to pin | Phase 5 (code can be written and validated earlier) |
-| Startup script contents (k3s install flags, disabling unneeded components) | Phase 3 (rehearse locally) / Phase 5 |
-| How the cluster-layer bootstrap is run (script vs Helm commands vs Make targets) | Phase 3 |
-| Whether the budget alert can be created by Terraform | Phase 5 |
-| DNS provider and update mechanism (free subdomain) | Phase 5 |
-| IAP firewall rule details and the exact deploy-user setup on the VM | Phase 5 |
+| Exact machine type, disk size and region | Settled as defaults: e2-standard-2, 40 GB balanced, asia-south1 (D-056); pricing re-checked at sign-up |
+| Terraform provider and CLI versions to pin | Settled: `.terraform.lock.hcl` and `.github/tools.lock` (D-056) |
+| Startup script contents | Settled: `startup.sh.tftpl` (D-056) |
+| How the cluster-layer bootstrap is run | Settled: `deploy/bootstrap/bootstrap.sh` and `seal-secrets.sh` on the VM (D-056) |
+| Whether the budget alert can be created by Terraform | Settled: optional resource, `create_budget` (D-056) |
+| DNS provider and update mechanism | Settled: DuckDNS, A record set once to the static IP (D-056) |
+| IAP firewall rule details and deploy-user setup | Settled: D-056 |

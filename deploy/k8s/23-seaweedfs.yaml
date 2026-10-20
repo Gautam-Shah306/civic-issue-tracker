@@ -24,6 +24,12 @@ metadata:
   labels:
     app.kubernetes.io/name: seaweedfs
     app.kubernetes.io/part-of: civic-issue-tracker
+  annotations:
+    checkov.io/skip1: CKV_K8S_22=Upstream seaweedfs image requires writable filesystem for internal logs and temporary state
+    checkov.io/skip2: CKV_K8S_23=Upstream entrypoint starts as root and drops privileges using su-exec
+    checkov.io/skip3: CKV_K8S_25=Upstream entrypoint requires capabilities to switch user via su-exec
+    checkov.io/skip4: CKV_K8S_35=Credentials are read from environment variables by the upstream seaweedfs image
+    checkov.io/skip5: CKV_K8S_40=Upstream entrypoint starts as root to fix data-dir ownership then drops privileges
 spec:
   serviceName: seaweedfs
   replicas: 1
@@ -36,6 +42,7 @@ spec:
         app.kubernetes.io/name: seaweedfs
         app.kubernetes.io/part-of: civic-issue-tracker
     spec:
+      automountServiceAccountToken: false
       securityContext:
         seccompProfile:
           type: RuntimeDefault

@@ -1,0 +1,10 @@
+# Checkov configuration file for civic-issue-tracker
+# In Prompt 7, all skips are inline per resource with written reasons (Part A3, C3).
+# There is NO global skip-check list.
+
+framework:
+  - terraform
+  - kubernetes
+
+compact: true
+quiet: false

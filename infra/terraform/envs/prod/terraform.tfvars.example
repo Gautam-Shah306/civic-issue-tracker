@@ -1,0 +1,17 @@
+# Example Terraform variables for prod environment
+# Copy this file to terraform.tfvars and fill in your real GCP project ID.
+# DO NOT commit real terraform.tfvars files to version control.
+
+project_id         = "example-project-id"
+region             = "asia-south1"
+zone               = "asia-south1-a"
+machine_type       = "e2-standard-2"
+disk_size_gb       = 40
+vm_enabled         = true
+github_repository          = "Gautam-Shah306/civic-issue-tracker"
+# Look up real numeric owner ID: curl -s https://api.github.com/users/<owner> | jq .id
+github_repository_owner_id = "0"
+public_host                = "nagriksetu.duckdns.org"
+create_budget      = false
+billing_account_id = null
+budget_amount_usd  = 50

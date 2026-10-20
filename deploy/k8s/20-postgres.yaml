@@ -24,6 +24,12 @@ metadata:
   labels:
     app.kubernetes.io/name: postgres
     app.kubernetes.io/part-of: civic-issue-tracker
+  annotations:
+    checkov.io/skip1: CKV_K8S_22=Upstream postgis image requires writable filesystem for socket and temporary files
+    checkov.io/skip2: CKV_K8S_23=Upstream entrypoint starts as root and drops privileges requiring capabilities
+    checkov.io/skip3: CKV_K8S_25=Upstream entrypoint requires five specific capabilities to drop privileges to postgres user
+    checkov.io/skip4: CKV_K8S_35=Credentials are read from environment variables by the upstream postgis image
+    checkov.io/skip5: CKV_K8S_40=Upstream entrypoint starts as root to fix data-dir ownership then drops privileges
 spec:
   serviceName: postgres
   replicas: 1
@@ -36,6 +42,7 @@ spec:
         app.kubernetes.io/name: postgres
         app.kubernetes.io/part-of: civic-issue-tracker
     spec:
+      automountServiceAccountToken: false
       securityContext:
         seccompProfile:
           type: RuntimeDefault

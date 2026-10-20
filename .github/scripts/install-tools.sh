@@ -12,8 +12,8 @@ if [ "$#" -eq 0 ]; then
     exit 1
 fi
 
-SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-REPO_ROOT=$(CDPATH= cd -- "${SCRIPT_DIR}/../.." && pwd)
+SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+REPO_ROOT=$(CDPATH='' cd -- "${SCRIPT_DIR}/../.." && pwd)
 
 LOCK_FILE="${TOOLS_LOCK:-${REPO_ROOT}/.github/tools.lock}"
 if [ ! -f "${LOCK_FILE}" ]; then

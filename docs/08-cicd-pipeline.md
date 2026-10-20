@@ -83,4 +83,4 @@ The deploy job connects, runs `helm upgrade --install --atomic` from the shared 
 | Path-filter rules per service (including shared `/contracts` changes triggering all affected services) | Phase 1 |
 | How the smoke test authenticates and cleans up its test data | Phase 3 |
 | Release notes format and when `v1.0.0` is cut | Phase 5 |
-| Deploy-user permissions on the VM and the IAP-based deploy script | Phase 5 |
+| Deploy-user permissions on the VM and the IAP-based deploy script | Settled: D-056; `deploy-remote.sh` and the dormant deploy job |
