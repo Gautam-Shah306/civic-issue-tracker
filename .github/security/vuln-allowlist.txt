@@ -1,2 +1,4 @@
 # Vulnerability Allowlist (D-024)
 # Format: ID|reason|YYYY-MM-DD
+CVE-2026-85091|zlib fix not yet in nginx-unprivileged alpine-slim base|2026-10-27
+CVE-2026-103111|pcre2 fix not yet in nginx-unprivileged alpine-slim base|2026-10-27

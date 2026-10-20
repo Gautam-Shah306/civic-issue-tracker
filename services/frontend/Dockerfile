@@ -16,7 +16,7 @@ COPY services/${SERVICE}/src/ ./src/
 RUN npm run build
 
 # 2. Runtime stage
-FROM nginxinc/nginx-unprivileged:1.31.5-alpine@sha256:19c132c9ab02d3b783f478743dafc7a7f42e27aa7d2bdcbec1bb1128ca8f2a07 AS runtime
+FROM nginxinc/nginx-unprivileged:1.31.5-alpine-slim@sha256:736aa11ab9f9c320825722e411661c64559881e15e77f37137eef168ebe9515c AS runtime
 ARG SERVICE=frontend
 
 # Copy compiled static assets from builder
