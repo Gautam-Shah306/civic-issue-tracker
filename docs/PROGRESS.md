@@ -10,7 +10,7 @@
 - **Last verified step:** Prompt 5: image pipeline, scans, kind install, GHCR publish (D-054, D-055); CI green on `main`
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
 - **Cloud account:** not created (by design; created in v1 cycle 8, D-039)
-- **Next action:** verify Prompt 6 (Terraform, cluster scripts, deploy job, Checkov, D-055, D-056), then Prompt 7. Antigravity prompts used: 7 of 9
+- **Next action:** verify Prompt 6 (Terraform, cluster scripts, deploy job, Checkov, D-055, D-056), then Prompt 7. Antigravity prompts used: 8 of 9
 
 ## v1 plan (D-039)
 
@@ -87,6 +87,8 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 - Enable CodeQL default setup in the repository settings (D-054)
 - Allowlist entries for zlib and pcre2 expire on 2026-10-27 (D-055)
 - Re-run the doc 10 sign-up checklist (credit, card, machine types, pricing, budget alerts) before creating the GCP account
+- Remove the exclude-newer-package override(s) in services/*/pyproject.toml once the pinned release is older than 7 days (D-057)
+- Check whether nginx-unprivileged 1.31.6-alpine-slim fixes zlib and pcre2; if so drop the two allowlist entries (they expire 2026-10-27)
 
 ## Log
 
@@ -118,3 +120,4 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 | 2026-10-20 | Prompt 5: image pipeline, scans, kind install in CI, GHCR publish (D-054, D-055) | Verified |
 | 2026-10-20 | Prompt 6: Terraform, cluster scripts, deploy job, Checkov (D-055, D-056) | In progress |
 | 2026-10-21 | Prompt 7: fixes from the Prompt 6 review (deploy script layout, STS token type, OS Login API, OIDC owner pin, Checkov scoping, k8s hardening) | In progress |
+| 2026-10-21 | Prompt 8: CI fixes (gate scope, certifi/pillow/vite advisories, Checkov, Terraform constraint, bootstrap hardening) (D-057) | In progress |

@@ -26,7 +26,7 @@ CERT_MANAGER_URL="https://charts.jetstack.io/charts/cert-manager-${CERT_MANAGER_
 CERT_MANAGER_SHA256="73a56e1728edd6c99f1f31082618c3259d279a76b7ebd3d4bdc5475c2442d34a"
 
 SEALED_CHART_VERSION="2.20.0"
-SEALED_CHART_URL="https://github.com/bitnami/sealed-secrets/releases/download/helm-v${SEALED_CHART_VERSION}/sealed-secrets-${SEALED_CHART_VERSION}.tgz"
+SEALED_CHART_URL="https://github.com/bitnami-labs/sealed-secrets/releases/download/helm-v${SEALED_CHART_VERSION}/sealed-secrets-${SEALED_CHART_VERSION}.tgz"
 SEALED_CHART_SHA256="6092d219c697f3c9ae3a386ba24bfdd86877c5e2fc8892e2af8a810145b990ef"
 
 if [ "${STAGE}" = "platform" ]; then
@@ -34,6 +34,19 @@ if [ "${STAGE}" = "platform" ]; then
 
     echo "--> Waiting for k3s node to be Ready..."
     kubectl wait --for=condition=ready node --all --timeout=120s
+
+    echo "--> Waiting for Traefik ingress controller Deployment to exist..."
+    TRAEFIK_WAIT_TIMEOUT="${BOOTSTRAP_TRAEFIK_WAIT_TIMEOUT:-300}"
+    TRAEFIK_INTERVAL=5
+    traefik_elapsed=0
+    until kubectl get deployment/traefik -n kube-system >/dev/null 2>&1; do
+        if [ "${traefik_elapsed}" -ge "${TRAEFIK_WAIT_TIMEOUT}" ]; then
+            echo "ERROR: Timed out waiting for deployment/traefik in kube-system after ${TRAEFIK_WAIT_TIMEOUT}s" >&2
+            exit 1
+        fi
+        sleep "${TRAEFIK_INTERVAL}"
+        traefik_elapsed=$((traefik_elapsed + TRAEFIK_INTERVAL))
+    done
 
     echo "--> Waiting for Traefik ingress controller rollout..."
     kubectl rollout status deployment/traefik -n kube-system --timeout=180s
@@ -89,20 +102,31 @@ fi
 if [ "${STAGE}" = "data" ]; then
     echo "=== [STAGE 2: DATA] Starting Data Stores Bootstrap ==="
 
+    wait_for_secret() {
+        local secret_name="$1"
+        local ns="$2"
+        local timeout="${BOOTSTRAP_SECRET_WAIT_TIMEOUT:-60}"
+        local interval=3
+        local elapsed=0
+        echo "--> Waiting up to ${timeout}s for secret '${secret_name}' in namespace '${ns}' (Sealed Secrets unseals asynchronously)..."
+        until kubectl get secret "${secret_name}" -n "${ns}" >/dev/null 2>&1; do
+            if [ "${elapsed}" -ge "${timeout}" ]; then
+                echo "ERROR: Timed out waiting for secret '${secret_name}' in namespace '${ns}' after ${timeout}s. Sealed Secrets unseals asynchronously; verify SealedSecret status or run seal-secrets.sh." >&2
+                exit 1
+            fi
+            sleep "${interval}"
+            elapsed=$((elapsed + interval))
+        done
+    }
+
     echo "--> Checking required Secrets in civic-app..."
     for sec in jwt-public auth-secrets report-secrets notification-secrets analytics-secrets routing-secrets image-secrets gateway-secrets; do
-        if ! kubectl get secret "${sec}" -n civic-app >/dev/null 2>&1; then
-            echo "ERROR: Required secret '${sec}' not found in namespace 'civic-app'. Run seal-secrets.sh first." >&2
-            exit 1
-        fi
+        wait_for_secret "${sec}" "civic-app"
     done
 
     echo "--> Checking required Secrets in civic-data..."
     for sec in postgres-superuser db-init-secrets rabbitmq-credentials redis-credentials seaweedfs-credentials; do
-        if ! kubectl get secret "${sec}" -n civic-data >/dev/null 2>&1; then
-            echo "ERROR: Required secret '${sec}' not found in namespace 'civic-data'. Run seal-secrets.sh first." >&2
-            exit 1
-        fi
+        wait_for_secret "${sec}" "civic-data"
     done
 
     echo "--> Applying data store manifests..."
@@ -121,16 +145,39 @@ if [ "${STAGE}" = "data" ]; then
 
     echo "--> Running db-init Job..."
     if kubectl get job/db-init -n civic-data >/dev/null 2>&1; then
-        complete_status=$(kubectl get job/db-init -n civic-data -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' || true)
+        failed_status=$(kubectl get job/db-init -n civic-data -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null || true)
+        if [ "${failed_status}" = "True" ]; then
+            echo "ERROR: job/db-init in civic-data has failed. Recent logs:" >&2
+            kubectl logs job/db-init -n civic-data --tail=50 >&2 || true
+            echo "INSTRUCTIONS: Delete the failed job with 'kubectl delete job db-init -n civic-data' and re-run bootstrap.sh data. Nothing was deleted automatically." >&2
+            exit 1
+        fi
+        complete_status=$(kubectl get job/db-init -n civic-data -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null || true)
         if [ "${complete_status}" = "True" ]; then
             echo "db-init job has already completed successfully."
         else
             echo "Waiting for active db-init job..."
-            kubectl wait --for=condition=complete --timeout=120s job/db-init -n civic-data
+            if ! kubectl wait --for=condition=complete --timeout=120s job/db-init -n civic-data; then
+                failed_status=$(kubectl get job/db-init -n civic-data -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null || true)
+                if [ "${failed_status}" = "True" ]; then
+                    echo "ERROR: job/db-init in civic-data failed during execution. Recent logs:" >&2
+                    kubectl logs job/db-init -n civic-data --tail=50 >&2 || true
+                    echo "INSTRUCTIONS: Delete the failed job with 'kubectl delete job db-init -n civic-data' and re-run bootstrap.sh data. Nothing was deleted automatically." >&2
+                fi
+                exit 1
+            fi
         fi
     else
         kubectl apply -f "${REPO_ROOT}/deploy/k8s/25-db-init-job.yaml"
-        kubectl wait --for=condition=complete --timeout=120s job/db-init -n civic-data
+        if ! kubectl wait --for=condition=complete --timeout=120s job/db-init -n civic-data; then
+            failed_status=$(kubectl get job/db-init -n civic-data -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null || true)
+            if [ "${failed_status}" = "True" ]; then
+                echo "ERROR: job/db-init in civic-data failed during execution. Recent logs:" >&2
+                kubectl logs job/db-init -n civic-data --tail=50 >&2 || true
+                echo "INSTRUCTIONS: Delete the failed job with 'kubectl delete job db-init -n civic-data' and re-run bootstrap.sh data. Nothing was deleted automatically." >&2
+            fi
+            exit 1
+        fi
     fi
 
     echo "=== [STAGE 2: DATA] Data stores bootstrap completed successfully ==="

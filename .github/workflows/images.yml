@@ -270,8 +270,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 50
     permissions:
+      contents: read
       actions: read
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - name: Wait for All Other Workflow Runs on Head SHA
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -291,39 +297,24 @@ jobs:
               exit 1
             fi
 
-            runs_json=$(gh api "repos/${REPO}/actions/runs?head_sha=${HEAD_SHA}")
+            runs_json=$(gh api "repos/${REPO}/actions/runs?head_sha=${HEAD_SHA}&per_page=100")
 
-            pending=$(echo "${runs_json}" | jq -r --arg id "${CURRENT_RUN_ID}" '
-              .workflow_runs[] | select((.id | tostring) != $id and (.status != "completed")) | .name
-            ')
+            set +e
+            echo "${runs_json}" | sh .github/scripts/gate-check.sh "${CURRENT_RUN_ID}"
+            gate_rc=$?
+            set -e
 
-            if [ -z "${pending}" ]; then
-              echo "All other workflow runs for commit ${HEAD_SHA} have completed."
+            if [ "${gate_rc}" -eq 0 ]; then
+              echo "Gate verification passed: all workflows on commit ${HEAD_SHA} succeeded."
               break
+            elif [ "${gate_rc}" -eq 10 ]; then
+              echo "Waiting for active workflow runs to complete..."
+              sleep 30
+            else
+              echo "ERROR: Gate check failed with exit code ${gate_rc}" >&2
+              exit 1
             fi
-
-            echo "Waiting for active workflow runs to complete: $(echo "${pending}" | tr '\n' ' ')"
-            sleep 30
           done
-
-          # Require that a run of the CI workflow exists (D-030)
-          ci_count=$(echo "${runs_json}" | jq -r '[.workflow_runs[] | select(.name == "CI")] | length')
-          if [ "${ci_count}" -eq 0 ]; then
-            echo "ERROR: No CI workflow run found for commit ${HEAD_SHA}" >&2
-            exit 1
-          fi
-
-          # Fail if any workflow concluded as anything other than success or skipped
-          failed_runs=$(echo "${runs_json}" | jq -r --arg id "${CURRENT_RUN_ID}" '
-            .workflow_runs[] | select((.id | tostring) != $id and (.conclusion != "success" and .conclusion != "skipped")) | "\(.name): \(.conclusion)"
-          ')
-          if [ -n "${failed_runs}" ]; then
-            echo "ERROR: One or more workflow runs did not conclude successfully:" >&2
-            echo "${failed_runs}" >&2
-            exit 1
-          fi
-
-          echo "Gate verification passed: all workflows on commit ${HEAD_SHA} succeeded."
 
   publish:
     name: Publish Images to GHCR

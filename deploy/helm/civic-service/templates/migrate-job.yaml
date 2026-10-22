@@ -3,6 +3,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ include "civic-service.fullname" . }}-migrate
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "civic-service.labels" . | nindent 4 }}
     app.kubernetes.io/component: migrate
@@ -10,6 +11,7 @@ metadata:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-5"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    checkov.io/skip1: CKV_K8S_35=Database migration credentials read from environment variables via secretKeyRef
 spec:
   backoffLimit: 3
   activeDeadlineSeconds: 300

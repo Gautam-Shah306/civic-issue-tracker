@@ -118,11 +118,14 @@ jobs:
       - name: Render Kubernetes Manifests
         run: |
           mkdir -p /tmp/k8s-render
+          # Render service charts with a placeholder digest because real deploys always pin an image digest
           for svc in auth report notification analytics routing image gateway frontend; do
             helm template "$svc" deploy/helm/civic-service \
               -f deploy/helm/values/_common.yaml \
               -f "deploy/helm/values/${svc}.yaml" \
-              --set image.tag=ci > "/tmp/k8s-render/${svc}.yaml"
+              --namespace civic-app \
+              --set image.tag=ci \
+              --set image.digest=sha256:0000000000000000000000000000000000000000000000000000000000000000 > "/tmp/k8s-render/${svc}.yaml"
           done
           cp deploy/k8s/*.yaml /tmp/k8s-render/
 

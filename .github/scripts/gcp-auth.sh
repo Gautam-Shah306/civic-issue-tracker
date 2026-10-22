@@ -32,12 +32,30 @@ else
     AUDIENCE="//iam.googleapis.com/projects/${GCP_PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-actions-pool/providers/${GCP_WIF_PROVIDER}"
 fi
 
+handle_curl_failure() {
+    step_name="$1"
+    status="$2"
+    body="$3"
+    err_fields=$(printf '%s\n' "${body}" | jq -r '[(.error | if type == "object" then .message else . end), .error_description, .message] | map(select(. != null and . != "")) | join(": ")' 2>/dev/null || true)
+    if [ -z "${err_fields}" ]; then
+        err_fields="No error details provided in response"
+    fi
+    echo "ERROR: ${step_name} failed with HTTP status ${status}: ${err_fields}" >&2
+    exit 1
+}
+
 echo "--> Requesting GitHub OIDC ID token with audience..."
-GH_TOKEN_RESPONSE=$(curl -fsSL \
+GH_TOKEN_RESPONSE=$(curl -sSL -w "\n%{http_code}" \
     -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
     "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${AUDIENCE}")
+GH_STATUS=$(printf '%s\n' "${GH_TOKEN_RESPONSE}" | tail -n 1)
+GH_BODY=$(printf '%s\n' "${GH_TOKEN_RESPONSE}" | sed '$d')
 
-GH_ID_TOKEN=$(echo "${GH_TOKEN_RESPONSE}" | jq -r '.value // empty')
+if [ "${GH_STATUS}" != "200" ]; then
+    handle_curl_failure "GitHub OIDC token request" "${GH_STATUS}" "${GH_BODY}"
+fi
+
+GH_ID_TOKEN=$(echo "${GH_BODY}" | jq -r '.value // empty')
 if [ -z "${GH_ID_TOKEN}" ]; then
     echo "ERROR: Failed to obtain GitHub OIDC token" >&2
     exit 1
@@ -46,7 +64,7 @@ echo "::add-mask::${GH_ID_TOKEN}"
 
 # 4. Exchange GitHub OIDC token at Google STS
 echo "--> Exchanging OIDC token with Google Security Token Service (STS)..."
-STS_RESPONSE=$(curl -fsSL -X POST "https://sts.googleapis.com/v1/token" \
+STS_RESPONSE=$(curl -sSL -w "\n%{http_code}" -X POST "https://sts.googleapis.com/v1/token" \
     -H "Content-Type: application/json" \
     -d @- <<EOF
 {
@@ -59,8 +77,14 @@ STS_RESPONSE=$(curl -fsSL -X POST "https://sts.googleapis.com/v1/token" \
 }
 EOF
 )
+STS_STATUS=$(printf '%s\n' "${STS_RESPONSE}" | tail -n 1)
+STS_BODY=$(printf '%s\n' "${STS_RESPONSE}" | sed '$d')
 
-FEDERATED_TOKEN=$(echo "${STS_RESPONSE}" | jq -r '.access_token // empty')
+if [ "${STS_STATUS}" != "200" ]; then
+    handle_curl_failure "STS token exchange" "${STS_STATUS}" "${STS_BODY}"
+fi
+
+FEDERATED_TOKEN=$(echo "${STS_BODY}" | jq -r '.access_token // empty')
 if [ -z "${FEDERATED_TOKEN}" ]; then
     echo "ERROR: STS token exchange failed" >&2
     exit 1
@@ -69,13 +93,19 @@ echo "::add-mask::${FEDERATED_TOKEN}"
 
 # 5. Impersonate the deploy service account
 echo "--> Impersonating deploy service account: ${GCP_DEPLOY_SA}..."
-SA_RESPONSE=$(curl -fsSL -X POST \
+SA_RESPONSE=$(curl -sSL -w "\n%{http_code}" -X POST \
     "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${GCP_DEPLOY_SA}:generateAccessToken" \
     -H "Authorization: Bearer ${FEDERATED_TOKEN}" \
     -H "Content-Type: application/json" \
     -d '{ "scope": ["https://www.googleapis.com/auth/cloud-platform"] }')
+SA_STATUS=$(printf '%s\n' "${SA_RESPONSE}" | tail -n 1)
+SA_BODY=$(printf '%s\n' "${SA_RESPONSE}" | sed '$d')
 
-ACCESS_TOKEN=$(echo "${SA_RESPONSE}" | jq -r '.accessToken // empty')
+if [ "${SA_STATUS}" != "200" ]; then
+    handle_curl_failure "Service account impersonation" "${SA_STATUS}" "${SA_BODY}"
+fi
+
+ACCESS_TOKEN=$(echo "${SA_BODY}" | jq -r '.accessToken // empty')
 if [ -z "${ACCESS_TOKEN}" ]; then
     echo "ERROR: Failed to impersonate service account ${GCP_DEPLOY_SA}" >&2
     exit 1

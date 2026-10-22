@@ -100,7 +100,38 @@ Review every proposed resource creation to verify that names, tags, and networks
 terraform apply prod.tfplan
 ```
 
-### 5. GitHub Actions Deploy Variables & TLS Issuer Switch
+### 5. Post-Apply VM Bootstrap & First-Run Setup
+
+After Terraform provisions the VM and startup scripts finish installing k3s:
+
+1. **First-run copy of deploy assets:** Copy the `deploy/` directory to the VM via IAP tunnel:
+   ```bash
+   gcloud compute scp --recurse --tunnel-through-iap deploy civic-vm:~/ --zone=asia-south1-a
+   ```
+2. **Execute cluster bootstrap stages:** SSH into the VM (`gcloud compute ssh civic-vm --zone=asia-south1-a --tunnel-through-iap`) and run:
+   ```bash
+   sudo ACME_EMAIL=admin@example.com bash deploy/bootstrap/bootstrap.sh platform
+   sudo bash deploy/bootstrap/seal-secrets.sh
+   sudo bash deploy/bootstrap/bootstrap.sh data
+   ```
+
+#### Clean-Reset Recipe for Failed `seal-secrets.sh`
+If `seal-secrets.sh` fails or needs to be re-run, delete the 13 Secrets and SealedSecrets in `civic-app` and `civic-data`, then re-run `seal-secrets.sh` (safe only before `db-init` has run):
+```bash
+kubectl delete secret,sealedsecret jwt-public auth-secrets report-secrets notification-secrets analytics-secrets routing-secrets image-secrets gateway-secrets -n civic-app --ignore-not-found
+kubectl delete secret,sealedsecret postgres-superuser db-init-secrets rabbitmq-credentials redis-credentials seaweedfs-credentials -n civic-data --ignore-not-found
+sudo bash deploy/bootstrap/seal-secrets.sh
+```
+
+#### Recovery from `db-init` Failure
+If the `db-init` Job fails during `bootstrap.sh data`, inspect logs, resolve the underlying issue, manually delete the failed Job, and re-run:
+```bash
+kubectl logs job/db-init -n civic-data --tail=50
+kubectl delete job db-init -n civic-data
+sudo bash deploy/bootstrap/bootstrap.sh data
+```
+
+### 6. GitHub Actions Deploy Variables & TLS Issuer Switch
 
 The automated CD deploy job (`.github/workflows/images.yml`) requires the following repository variables configured in GitHub repository settings:
 - **Repository Variables (names only):**

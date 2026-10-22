@@ -39,7 +39,13 @@ This directory contains the deployment configurations for the Civic Issue Tracke
 
 ## 2. Cluster Bootstrap Order on the VM (D-056)
 
-The bootstrap sequence on the provisioned GCP VM is executed in four strict stages (run as root with `sudo`):
+The bootstrap sequence on the provisioned GCP VM is executed in strict stages (run as root with `sudo`):
+
+0. **First-Run Setup (Copy Deploy Directory to VM):**
+   Copy the `deploy/` directory to the VM once using `gcloud compute scp --recurse --tunnel-through-iap` before running `bootstrap.sh platform`, because the automated deploy workflow only copies on its own runs:
+   ```bash
+   gcloud compute scp --recurse --tunnel-through-iap deploy civic-vm:~/ --zone=asia-south1-a
+   ```
 
 1. **Platform Stage:**
    Installs cert-manager and Sealed Secrets from verified charts, applies baseline namespaces and network policies, configures ClusterIssuers, and registers the db-init ConfigMap:
@@ -64,6 +70,33 @@ The bootstrap sequence on the provisioned GCP VM is executed in four strict stag
    ```bash
    sudo bash .github/scripts/deploy-remote.sh
    ```
+
+### Clean-Reset Recipe for Failed `seal-secrets.sh`
+If `seal-secrets.sh` fails or needs to be re-run, delete the 13 Secrets and SealedSecrets in `civic-app` and `civic-data`, then re-run `seal-secrets.sh`. Note: This clean reset is safe ONLY before `db-init` has run:
+```bash
+# Delete in civic-app:
+kubectl delete secret,sealedsecret jwt-public auth-secrets report-secrets notification-secrets analytics-secrets routing-secrets image-secrets gateway-secrets -n civic-app --ignore-not-found
+
+# Delete in civic-data:
+kubectl delete secret,sealedsecret postgres-superuser db-init-secrets rabbitmq-credentials redis-credentials seaweedfs-credentials -n civic-data --ignore-not-found
+
+# Re-run seal-secrets.sh
+sudo bash deploy/bootstrap/seal-secrets.sh
+```
+
+### Recovery from `db-init` Failure
+If the `db-init` Job fails during `bootstrap.sh data`, inspect the container logs:
+```bash
+kubectl logs job/db-init -n civic-data --tail=50
+```
+Resolve the root cause, delete the failed Job manually (scripts do not delete resources automatically):
+```bash
+kubectl delete job db-init -n civic-data
+```
+And re-run the data stage:
+```bash
+sudo bash deploy/bootstrap/bootstrap.sh data
+```
 
 ---
 

@@ -2,6 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: {{ include "civic-service.fullname" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "civic-service.labels" . | nindent 4 }}
     app.kubernetes.io/component: app
@@ -70,6 +71,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: {{ include "civic-service.fullname" . }}-migrate
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "civic-service.labels" . | nindent 4 }}
     app.kubernetes.io/component: migrate
