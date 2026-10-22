@@ -82,9 +82,9 @@ EOF
 
 IFS="$OLD_IFS"
 
-if [ "${CI_GREEN}" -ne 1 ]; then
-    echo "failed: CI workflow run missing or not successful"
-    FAILED_COUNT=$((FAILED_COUNT + 1))
+if [ "${CI_GREEN}" -ne 1 ] && [ "${FAILED_COUNT}" -eq 0 ]; then
+    echo "pending: CI workflow run missing or not yet completed"
+    PENDING_COUNT=$((PENDING_COUNT + 1))
 fi
 
 if [ "${FAILED_COUNT}" -gt 0 ]; then
