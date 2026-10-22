@@ -9,7 +9,7 @@ dependencies = [
     "boto3==1.43.107",
     "certifi==2026.10.19",
     "cryptography==50.0.2",
-    "fastapi==0.142.2",
+    "fastapi==0.143.1",
     "jsonschema==4.26.0",
     "pillow==13.0.0",
     "psycopg==3.3.6",
