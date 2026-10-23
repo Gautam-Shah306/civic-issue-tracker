@@ -6,11 +6,11 @@
 
 ## Status
 
-- **Current phase:** v1 cycle 6, Kubernetes manifests (D-039; the phases in `11` are superseded by the cycles below)
-- **Last verified step:** Prompt 5: image pipeline, scans, kind install, GHCR publish (D-054, D-055); CI green on `main`
+- **Current phase:** v1 cycle 8, Terraform and GCP (D-039); cycle 7 is complete
+- **Last verified step:** Prompt 8 and the gate fix: CI green on `main`, eight images published to GHCR (public) with recorded digests (D-054 to D-057)
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
 - **Cloud account:** not created (by design; created in v1 cycle 8, D-039)
-- **Next action:** verify Prompt 6 (Terraform, cluster scripts, deploy job, Checkov, D-055, D-056), then Prompt 7. Antigravity prompts used: 8 of 9
+- **Next action:** GCP sign-up checklist (doc 10), account and project, `terraform apply` from `infra/terraform/envs/prod` (D-056), then bootstrap, first deploy and the staging-to-prod certificate switch. Antigravity prompts used: 8 of 9
 
 ## v1 plan (D-039)
 
@@ -22,7 +22,7 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 - [x] Cycle 4: Python base + Image + Routing (D-044, D-045, D-046, D-047)
 - [x] Cycle 5: Web Frontend + backend gaps
 - [x] Cycle 6: Kubernetes manifests (Helm chart, data stores, policies; render-checked only, no local cluster; D-051, D-052)
-- [ ] Cycle 7: Pipeline and DevSecOps (Prompt 5: image pipeline, scans, kind install, GHCR publish; Prompt 6: deploy workflow and Checkov; Prompt 7: compose e2e in CI; D-053, D-054)
+- [x] Cycle 7: Pipeline and DevSecOps (Prompt 5: image pipeline, scans, kind install, GHCR publish; Prompt 6: deploy workflow and Checkov; Prompt 7: compose e2e in CI; D-053, D-054)
 - [ ] Cycle 8: Terraform and GCP
 - [ ] Cycle 9: Go-live finish
 - [ ] Cycle 10: Buffer
@@ -79,6 +79,7 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 
 ## Open items
 
+- Intermittent first-report 504 on a fresh local stack (2 of 4 fresh starts, passes when warm); no cause found; consider connect timeouts for the Report Postgres pool and the gateway Redis client; re-test with the full e2e against the public URL after deploy
 - All "Deferred decisions" sections in documents `01` to `11`
 - Scan the pinned third-party images (D-033) with Grype in Phase 3
 - Optional, later: verify the CI failure paths on GitHub with a throwaway branch and `workflow_dispatch`
@@ -118,6 +119,7 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 | 2026-10-18 | Prompt 3: frontend B (staff and admin views, frontend CI fix, backend test & routing gaps) (D-050) | Verified |
 | 2026-10-19 | Prompt 4: shared Helm chart and Kubernetes manifests (D-051, D-052, D-053) | Verified |
 | 2026-10-20 | Prompt 5: image pipeline, scans, kind install in CI, GHCR publish (D-054, D-055) | Verified |
-| 2026-10-20 | Prompt 6: Terraform, cluster scripts, deploy job, Checkov (D-055, D-056) | In progress |
-| 2026-10-21 | Prompt 7: fixes from the Prompt 6 review (deploy script layout, STS token type, OS Login API, OIDC owner pin, Checkov scoping, k8s hardening) | In progress |
-| 2026-10-21 | Prompt 8: CI fixes (gate scope, certifi/pillow/vite advisories, Checkov, Terraform constraint, bootstrap hardening) (D-057) | In progress |
+| 2026-10-20 | Prompt 6: Terraform, cluster scripts, deploy job, Checkov (D-055, D-056) | Verified |
+| 2026-10-21 | Prompt 7: fixes from the Prompt 6 review (deploy script layout, STS token type, OS Login API, OIDC owner pin, Checkov scoping, k8s hardening) | Verified |
+| 2026-10-21 | Prompt 8: CI fixes (gate scope, certifi/pillow/vite advisories, Checkov, Terraform constraint, bootstrap hardening) (D-057) | Verified |
+| 2026-10-22 | Gate fix (unfinished CI counts as pending, D-057); first publish: eight images in GHCR (public), image-digests artifact recorded | Verified |
