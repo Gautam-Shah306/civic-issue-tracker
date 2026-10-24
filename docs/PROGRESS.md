@@ -89,7 +89,7 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 - Allowlist entries for zlib and pcre2 expire on 2026-10-27 (D-055)
 - Re-run the doc 10 sign-up checklist (credit, card, machine types, pricing, budget alerts) before creating the GCP account
 - Remove the exclude-newer-package override(s) in services/*/pyproject.toml once the pinned release is older than 7 days (D-057)
-- Check whether nginx-unprivileged 1.31.6-alpine-slim fixes zlib and pcre2; if so drop the two allowlist entries (they expire 2026-10-27)
+- zlib CVE-2026-85091 stays allowlisted until 2026-11-07 (nginx-unprivileged 1.31.6-alpine-slim fixed pcre2 but not zlib); re-check for zlib 1.3.2-r1 and drop the entry
 
 ## Log
 
