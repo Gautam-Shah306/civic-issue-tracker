@@ -408,10 +408,10 @@ jobs:
 
       - name: Authenticate to Google Cloud via WIF
         env:
-          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-          GCP_PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}
-          GCP_WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
-          GCP_DEPLOY_SA: ${{ vars.GCP_DEPLOY_SA }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_PROJECT_NUMBER: ${{ secrets.GCP_PROJECT_NUMBER }}
+          GCP_WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
+          GCP_DEPLOY_SA: ${{ secrets.GCP_DEPLOY_SA }}
           GCP_ZONE: ${{ vars.GCP_ZONE }}
           GCP_INSTANCE: ${{ vars.GCP_INSTANCE }}
           PUBLIC_HOST: ${{ vars.PUBLIC_HOST }}

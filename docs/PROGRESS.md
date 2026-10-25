@@ -7,10 +7,10 @@
 ## Status
 
 - **Current phase:** v1 cycle 8, Terraform and GCP (D-039); cycle 7 is complete
-- **Last verified step:** Prompt 8 and the gate fix: CI green on `main`, eight images published to GHCR (public) with recorded digests (D-054 to D-057)
+- **Last verified step:** Prompt 9 and the data stage on the live cluster: CI green, `db-init` complete on k3s (D-058)
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
 - **Cloud account:** not created (by design; created in v1 cycle 8, D-039)
-- **Next action:** GCP sign-up checklist (doc 10), account and project, `terraform apply` from `infra/terraform/envs/prod` (D-056), then bootstrap, first deploy and the staging-to-prod certificate switch. Antigravity prompts used: 9 of 9
+- **Next action:** repository secrets and variables (D-059), first deploy through the pipeline, staging certificate check, production certificate, e2e against the public URL. Antigravity prompts used: 9 of 9 (none left)
 
 ## v1 plan (D-039)
 
@@ -124,4 +124,4 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 | 2026-10-21 | Prompt 7: fixes from the Prompt 6 review (deploy script layout, STS token type, OS Login API, OIDC owner pin, Checkov scoping, k8s hardening) | Verified |
 | 2026-10-21 | Prompt 8: CI fixes (gate scope, certifi/pillow/vite advisories, Checkov, Terraform constraint, bootstrap hardening) (D-057) | Verified |
 | 2026-10-22 | Gate fix (unfinished CI counts as pending, D-057); first publish: eight images in GHCR (public), image-digests artifact recorded | Verified |
-| 2026-10-25 | Prompt 9: db-init and migrate Jobs wait for Postgres, zod and undici advisories, provider constraint (D-058) | In progress |
+$1| Verified |

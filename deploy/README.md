@@ -189,3 +189,8 @@ The application initially deploys with the Let's Encrypt staging issuer to verif
 To switch to production:
 1. Edit the `cert-manager.io/cluster-issuer` annotation in `deploy/k8s/30-ingress.yaml` to specify `letsencrypt-prod`.
 2. Update the repository variable `CERT_ISSUER` to `letsencrypt-prod`.
+
+## Repository secrets and variables (deploy job)
+
+Secrets (masked in logs): GCP_PROJECT_ID, GCP_PROJECT_NUMBER, GCP_WIF_PROVIDER, GCP_DEPLOY_SA.
+Variables: GCP_ZONE, GCP_INSTANCE, PUBLIC_HOST, CERT_ISSUER (letsencrypt-staging or letsencrypt-prod), DEPLOY_ENABLED (true only when the cluster is ready). See D-059.
