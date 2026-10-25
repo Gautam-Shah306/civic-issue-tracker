@@ -52,3 +52,5 @@ Thumbs.db
 # Local data
 *.sqlite
 .local/
+
+get-today-ci-failures.ps1

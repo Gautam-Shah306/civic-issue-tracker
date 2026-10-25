@@ -10,7 +10,7 @@
 - **Last verified step:** Prompt 8 and the gate fix: CI green on `main`, eight images published to GHCR (public) with recorded digests (D-054 to D-057)
 - **Design baseline:** approved, documents `00` to `12` dated 2026-10-09
 - **Cloud account:** not created (by design; created in v1 cycle 8, D-039)
-- **Next action:** GCP sign-up checklist (doc 10), account and project, `terraform apply` from `infra/terraform/envs/prod` (D-056), then bootstrap, first deploy and the staging-to-prod certificate switch. Antigravity prompts used: 8 of 9
+- **Next action:** GCP sign-up checklist (doc 10), account and project, `terraform apply` from `infra/terraform/envs/prod` (D-056), then bootstrap, first deploy and the staging-to-prod certificate switch. Antigravity prompts used: 9 of 9
 
 ## v1 plan (D-039)
 
@@ -90,6 +90,7 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 - Re-run the doc 10 sign-up checklist (credit, card, machine types, pricing, budget alerts) before creating the GCP account
 - Remove the exclude-newer-package override(s) in services/*/pyproject.toml once the pinned release is older than 7 days (D-057)
 - zlib CVE-2026-85091 stays allowlisted until 2026-11-07 (nginx-unprivileged 1.31.6-alpine-slim fixed pcre2 but not zlib); re-check for zlib 1.3.2-r1 and drop the entry
+- Dependabot PRs (github_actions artifact bump, compose rabbitmq and mailpit, hashicorp/google 8.7.0): merge only after main is green and rebased (D-032)
 
 ## Log
 
@@ -123,3 +124,4 @@ Phase checklists below describe the full scope; D-039 supersedes them where they
 | 2026-10-21 | Prompt 7: fixes from the Prompt 6 review (deploy script layout, STS token type, OS Login API, OIDC owner pin, Checkov scoping, k8s hardening) | Verified |
 | 2026-10-21 | Prompt 8: CI fixes (gate scope, certifi/pillow/vite advisories, Checkov, Terraform constraint, bootstrap hardening) (D-057) | Verified |
 | 2026-10-22 | Gate fix (unfinished CI counts as pending, D-057); first publish: eight images in GHCR (public), image-digests artifact recorded | Verified |
+| 2026-10-25 | Prompt 9: db-init and migrate Jobs wait for Postgres, zod and undici advisories, provider constraint (D-058) | In progress |

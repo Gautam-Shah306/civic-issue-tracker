@@ -143,6 +143,9 @@ if [ "${STAGE}" = "data" ]; then
     kubectl rollout status statefulset/seaweedfs -n civic-data --timeout=180s
     kubectl rollout status deployment/mailpit -n civic-data --timeout=180s
 
+    echo "--> Waiting for data store pods to be Ready in civic-data..."
+    kubectl wait --for=condition=ready pod -l 'app.kubernetes.io/name in (postgres,rabbitmq,redis,seaweedfs,mailpit)' -n civic-data --timeout=180s
+
     echo "--> Running db-init Job..."
     if kubectl get job/db-init -n civic-data >/dev/null 2>&1; then
         failed_status=$(kubectl get job/db-init -n civic-data -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null || true)

@@ -98,6 +98,14 @@ And re-run the data stage:
 sudo bash deploy/bootstrap/bootstrap.sh data
 ```
 
+### Troubleshooting: New-Pod NetworkPolicy Programming Window (k3s / kube-router)
+On k3s with kube-router CNI, a newly started pod's NetworkPolicy allow rules are programmed asynchronously in the host datapath several seconds after the pod begins executing (measured ~4 s on live clusters).
+- **Symptom:** `Connection refused` (or `no response`) during the first few seconds of a Job connecting to internal stores like PostgreSQL, while long-running services reconnect automatically with backoff (D-038).
+- **Where the waits are:**
+  1. `deploy/k8s/25-db-init-job.yaml`: Built-in `pg_isready` loop (up to 120 s) polls PostgreSQL until accepting connections before running the SQL initialization script.
+  2. `deploy/helm/civic-service/templates/migrate-job.yaml`: Chart migration hook Jobs include a hardened `wait-for-db` init container running `pg_isready` (up to `migrate.waitForDb.timeoutSeconds`, default 120 s) using the node-cached PostgreSQL image before the migration script starts (D-058).
+  3. `deploy/bootstrap/bootstrap.sh`: Stage `data` executes `kubectl wait --for=condition=ready pod` across all 5 data store pods before launching `db-init`.
+
 ---
 
 ## 3. Operator Access via IAP Tunnel

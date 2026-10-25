@@ -30,6 +30,53 @@ spec:
         runAsGroup: {{ .Values.securityContext.runAsGroup | default 65532 }}
         seccompProfile:
           type: RuntimeDefault
+      {{- $baseEnv := default dict .Values.env }}
+      {{- $overrideEnv := default dict .Values.migrate.env }}
+      {{- $mergedEnv := merge $overrideEnv $baseEnv }}
+      {{- $waitForDb := default dict .Values.migrate.waitForDb }}
+      {{- if default true $waitForDb.enabled }}
+      initContainers:
+        - name: wait-for-db
+          image: {{ required "waitForDb.image must be set" .Values.waitForDb.image }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              timeout={{ default 120 $waitForDb.timeoutSeconds }}
+              elapsed=0
+              until pg_isready -q -h "${DB_HOST:-{{ $mergedEnv.DB_HOST | default "postgres.civic-data.svc.cluster.local" }}}" -p "${DB_PORT:-{{ $mergedEnv.DB_PORT | default "5432" }}}" -t 2; do
+                elapsed=$((elapsed + 2))
+                if [ "$elapsed" -ge "$timeout" ]; then
+                  echo "postgres not reachable after about ${timeout} s" >&2
+                  exit 1
+                fi
+                sleep 2
+              done
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          env:
+            - name: DB_HOST
+              value: {{ $mergedEnv.DB_HOST | default "postgres.civic-data.svc.cluster.local" | quote }}
+            - name: DB_PORT
+              value: {{ $mergedEnv.DB_PORT | default "5432" | quote }}
+      {{- end }}
       containers:
         - name: migrate
           image: {{ include "civic-service.image" . }}

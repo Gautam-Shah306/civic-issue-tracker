@@ -53,10 +53,14 @@ probes:
 
 env: {}
 
-secretEnv: []
+waitForDb:
+  image: ""
 
 migrate:
   enabled: false
+  waitForDb:
+    enabled: true
+    timeoutSeconds: 120
   args: []
   env: {}
   secretEnv: []

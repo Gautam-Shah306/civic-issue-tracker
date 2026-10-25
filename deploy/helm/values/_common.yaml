@@ -2,6 +2,9 @@ publicHost: nagriksetu.duckdns.org
 dataNamespace: civic-data
 imageRegistry: ghcr.io/gautam-shah306
 
+waitForDb:
+  image: "postgis/postgis:18-3.6@sha256:60f6ad1d21ea86a67d47780b9a0d1e1d200500f62b19293fa834d0dea80b8677"
+
 peers:
   traefik:
     namespace: kube-system

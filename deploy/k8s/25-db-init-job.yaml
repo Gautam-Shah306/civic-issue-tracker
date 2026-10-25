@@ -31,7 +31,15 @@ spec:
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
-            - /scripts/db-init.sh
+            - -c
+            - |
+              i=0
+              until pg_isready -q -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -t 2; do
+                i=$((i+1))
+                if [ "$i" -ge 60 ]; then echo "postgres not reachable after about 120 s" >&2; exit 1; fi
+                sleep 2
+              done
+              exec /bin/sh /scripts/db-init.sh
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
