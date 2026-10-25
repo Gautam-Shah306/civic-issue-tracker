@@ -424,7 +424,7 @@ jobs:
           GCP_INSTANCE: ${{ vars.GCP_INSTANCE }}
         run: |
           echo "--> Initializing ~/workspace on VM..."
-          gcloud compute ssh --quiet --tunnel-through-iap \
+          gcloud compute ssh --quiet --ssh-key-expire-after=1h --tunnel-through-iap \
             --zone="${GCP_ZONE}" \
             "${GCP_INSTANCE}" \
             --command="rm -rf ~/workspace && mkdir -p ~/workspace"
@@ -435,7 +435,7 @@ jobs:
           GCP_INSTANCE: ${{ vars.GCP_INSTANCE }}
         run: |
           echo "--> Transferring deploy directory, image-digests.json, and scripts to VM..."
-          gcloud compute scp --quiet --recurse --tunnel-through-iap \
+          gcloud compute scp --quiet --ssh-key-expire-after=1h --recurse --tunnel-through-iap \
             --zone="${GCP_ZONE}" \
             deploy image-digests.json .github/scripts/deploy-remote.sh \
             "${GCP_INSTANCE}:~/workspace/"
@@ -447,7 +447,7 @@ jobs:
           COMMIT_SHA: ${{ github.sha }}
         run: |
           echo "--> Running deploy-remote.sh on VM with sudo..."
-          gcloud compute ssh --quiet --tunnel-through-iap \
+          gcloud compute ssh --quiet --ssh-key-expire-after=1h --tunnel-through-iap \
             --zone="${GCP_ZONE}" \
             "${GCP_INSTANCE}" \
             --command="sudo bash ~/workspace/deploy-remote.sh ${COMMIT_SHA}"
