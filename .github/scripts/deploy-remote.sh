@@ -57,7 +57,7 @@ main() {
             -f "${REPO_ROOT}/deploy/helm/values/${svc}.yaml" \
             --set "image.tag=${commit_sha}" \
             --set "image.digest=${digest}" \
-            --atomic --wait --timeout 5m
+            --rollback-on-failure --wait --timeout 5m
 
         echo "  [OK] ${svc} successfully deployed"
     done
@@ -75,14 +75,14 @@ main() {
 
     echo "=== In-Cluster Smoke Test ==="
     # Port forward gateway (3000) and frontend (8080) in civic-app
-    kubectl -n civic-app port-forward svc/gateway 3000:3000 &
-    local pid_gw=$!
-    kubectl -n civic-app port-forward svc/frontend 8080:8080 &
-    local pid_fe=$!
+    kubectl -n civic-app port-forward svc/gateway 3000:3000 >/dev/null 2>&1 &
+    pid_gw=$!
+    kubectl -n civic-app port-forward svc/frontend 8080:8080 >/dev/null 2>&1 &
+    pid_fe=$!
 
     cleanup_pf() {
-        kill "${pid_gw}" 2>/dev/null || true
-        kill "${pid_fe}" 2>/dev/null || true
+        kill "${pid_gw:-}" 2>/dev/null || true
+        kill "${pid_fe:-}" 2>/dev/null || true
     }
     trap cleanup_pf EXIT
 

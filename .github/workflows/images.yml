@@ -441,6 +441,7 @@ jobs:
             "${GCP_INSTANCE}:~/workspace/"
 
       - name: Execute Remote Deployment via IAP Tunnel
+        timeout-minutes: 12
         env:
           GCP_ZONE: ${{ vars.GCP_ZONE }}
           GCP_INSTANCE: ${{ vars.GCP_INSTANCE }}
