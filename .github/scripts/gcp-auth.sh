@@ -114,9 +114,11 @@ echo "::add-mask::${ACCESS_TOKEN}"
 
 # 6. Export token to GITHUB_ENV for gcloud CLI
 if [ -n "${GITHUB_ENV:-}" ]; then
-    echo "CLOUDSDK_AUTH_ACCESS_TOKEN=${ACCESS_TOKEN}" >> "${GITHUB_ENV}"
-    echo "CLOUDSDK_CORE_PROJECT=${GCP_PROJECT_ID}" >> "${GITHUB_ENV}"
-    echo "CLOUDSDK_CORE_ACCOUNT=${GCP_DEPLOY_SA}" >> "${GITHUB_ENV}"
+    {
+        echo "CLOUDSDK_AUTH_ACCESS_TOKEN=${ACCESS_TOKEN}"
+        echo "CLOUDSDK_CORE_PROJECT=${GCP_PROJECT_ID}"
+        echo "CLOUDSDK_CORE_ACCOUNT=${GCP_DEPLOY_SA}"
+    } >> "${GITHUB_ENV}"
 fi
 
 echo "--> GCP authentication successfully established."
