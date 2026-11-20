@@ -2,7 +2,7 @@
 
 > **Status:** Approved design baseline
 > **Last updated:** 2026-10-09
-> **Owner:** Gautam (solo developer)
+> **Owner:** Gautam
 > **Read this first.** It explains the project, the rules for using these documents, and where every decision lives.
 
 ---
@@ -28,7 +28,7 @@ It is built as a set of **microservices** and is assessed on how well it applies
 
 ## 3. Constraints and context
 
-- **Team:** one person. **Timeline:** no fixed deadline ("we go as we go").
+- **Team:** two person. **Timeline:** no fixed deadline ("we go as we go").
 - **Cost rule:** everything stays within **free-tier resources**. Paid resources are a **last resort**.
 - **Live requirement:** the public link must stay up for about **one month** after the project is complete, with **at most roughly 100 requests** in that time (testing during development does not count).
 - **Data:** all data is **synthetic** (including wards). No real ward data is used.
