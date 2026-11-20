@@ -1,4 +1,4 @@
-# NagrikSetu (Civic Issue Tracker), live at nagriksetu.duckdns.org (planned)
+# NagrikSetu (Civic Issue Tracker), previously live and tested at nagriksetu.duckdns.org (VM currently offline)
 
 A platform for tracking and managing civic issues efficiently. 
 
